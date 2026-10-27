@@ -6,18 +6,18 @@ members = ["crates/*"]
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/infostash/infostash"
+repository = "https://github.com/codecapo/infostash"
 
 [workspace.dependencies]
-infostash-model = { path = "crates/model" }
-infostash-compiler = { path = "crates/compiler" }
-infostash-engine = { path = "crates/engine" }
-infostash-dist = { path = "crates/dist" }
-infostash-storage = { path = "crates/storage" }
-infostash-connectors = { path = "crates/connectors" }
-infostash-jobs = { path = "crates/jobs" }
-infostash-server = { path = "crates/server" }
-infostash-agent = { path = "crates/agent" }
+infostash-model = { path = "crates/model", version = "0.1.0" }
+infostash-compiler = { path = "crates/compiler", version = "0.1.0" }
+infostash-engine = { path = "crates/engine", version = "0.1.0" }
+infostash-dist = { path = "crates/dist", version = "0.1.0" }
+infostash-storage = { path = "crates/storage", version = "0.1.0" }
+infostash-connectors = { path = "crates/connectors", version = "0.1.0" }
+infostash-jobs = { path = "crates/jobs", version = "0.1.0" }
+infostash-server = { path = "crates/server", version = "0.1.0" }
+infostash-agent = { path = "crates/agent", version = "0.1.0" }
 # Unreleased iceberg-rust, for DataFusion 55 (apache/iceberg-rust#3290).
 # The DataFusion integration moved to apache/datafusion-iceberg; keep the
 # iceberg rev equal to the one that repo pins, or two iceberg copies build.

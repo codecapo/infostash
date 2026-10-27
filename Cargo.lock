@@ -2435,25 +2435,14 @@ dependencies = [
 [[package]]
 name = "infostash-agent"
 version = "0.1.0"
-dependencies = [
- "infostash-model",
-]
 
 [[package]]
 name = "infostash-cli"
 version = "0.1.0"
-dependencies = [
- "infostash-compiler",
- "infostash-jobs",
- "infostash-model",
-]
 
 [[package]]
 name = "infostash-compiler"
 version = "0.1.0"
-dependencies = [
- "infostash-model",
-]
 
 [[package]]
 name = "infostash-connectors"
@@ -2466,7 +2455,6 @@ dependencies = [
 name = "infostash-dist"
 version = "0.1.0"
 dependencies = [
- "infostash-engine",
  "infostash-model",
 ]
 
@@ -2476,15 +2464,12 @@ version = "0.1.0"
 dependencies = [
  "datafusion",
  "iceberg-datafusion",
- "infostash-model",
- "infostash-storage",
 ]
 
 [[package]]
 name = "infostash-jobs"
 version = "0.1.0"
 dependencies = [
- "infostash-dist",
  "infostash-model",
 ]
 
@@ -2495,11 +2480,6 @@ version = "0.1.0"
 [[package]]
 name = "infostash-server"
 version = "0.1.0"
-dependencies = [
- "infostash-agent",
- "infostash-jobs",
- "infostash-model",
-]
 
 [[package]]
 name = "infostash-storage"

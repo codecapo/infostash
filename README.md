@@ -38,7 +38,7 @@ You need [rustup](https://rustup.rs). The exact Rust version is pinned in
 `rust-toolchain.toml`, and rustup installs it automatically.
 
 ```sh
-git clone https://github.com/infostash/infostash
+git clone https://github.com/codecapo/infostash
 cd infostash
 cargo build
 cargo test

@@ -9,5 +9,8 @@ repository.workspace = true
 [dependencies]
 datafusion.workspace = true
 iceberg-datafusion.workspace = true
-infostash-model.workspace = true
-infostash-storage.workspace = true
+
+# Not used until week 3, but kept so the build proves datafusion and iceberg
+# agree on one arrow version.
+[package.metadata.cargo-machete]
+ignored = ["datafusion", "iceberg-datafusion"]

@@ -1,3 +1,6 @@
+<!-- Title: Conventional Commits, e.g. "feat(storage): add warehouse".
+     It becomes the commit message on main. -->
+
 ## What and why
 
 <!-- What does this change, and why? Link the issue: "Closes #123". -->
@@ -8,7 +11,8 @@
 
 ## Checklist
 
-- [ ] `cargo fmt --all`, `cargo clippy --all-targets -- -D warnings` and `cargo test` pass
+- [ ] CI checks pass locally (see CONTRIBUTING.md)
+- [ ] `CHANGELOG.md` updated if users will notice the change
 - [ ] Tests added or updated
 - [ ] Commits are signed off (`git commit -s`)
 - [ ] An RFC exists if this changes a public API, file format or protocol

@@ -20,7 +20,7 @@ machine to a merged pull request.
 2. Clone and build:
 
    ```sh
-   git clone https://github.com/infostash/infostash
+   git clone https://github.com/codecapo/infostash
    cd infostash
    cargo build
    cargo test
@@ -30,8 +30,18 @@ machine to a merged pull request.
 
    ```sh
    cargo fmt --all
-   cargo clippy --all-targets -- -D warnings
-   cargo test
+   cargo clippy --workspace --all-targets -- -D warnings
+   cargo test --workspace
+   ```
+
+   CI also checks licenses and security advisories, spelling and unused
+   dependencies. To run those locally, install the tools once
+   (`cargo install cargo-deny typos-cli cargo-machete`), then:
+
+   ```sh
+   cargo deny check
+   typos
+   cargo machete
    ```
 
 ## Repository layout
@@ -64,14 +74,29 @@ machine to a merged pull request.
 
 - One topic per pull request. Small pull requests get reviewed faster.
 - Tests for new behavior and for every bug fix.
-- `cargo fmt`, `cargo clippy` and `cargo test` pass.
+- All CI checks pass.
+- The title follows Conventional Commits (see below).
 - Public items have doc comments.
 - The description says what changed and why, and links the issue.
 
-### Commit messages
+### Branches, titles and merging
 
-Write a short summary line in the imperative ("Add CSV connector", not
-"Added CSV connector"), then a blank line, then any detail.
+- Branch from `main` and name the branch `<type>/<topic>`, for example
+  `feat/csv-connector`.
+- Pull requests are **squash merged**: the whole pull request becomes one
+  commit on `main`, and its title becomes that commit's message.
+- So the **pull request title** must follow
+  [Conventional Commits](https://www.conventionalcommits.org):
+  `<type>(<optional scope>): <summary>`, for example
+  `feat(connectors): add CSV connector` or `fix(storage): close writer on error`.
+  CI checks it.
+- Types: `feat`, `fix`, `docs`, `perf`, `refactor`, `test`, `build`, `ci`,
+  `deps`, `chore`, `revert`. Add `!` after the type for a breaking change
+  (`feat(model)!: rename Layer::Ready`).
+- Scopes are crate names (`storage`, `engine`, `cli`, ...) or areas (`docs`, `ci`).
+- Write the summary in the imperative and lower case, with no full stop.
+- Commits inside your branch can be anything you like; only the title lands on `main`.
+- Add a line to `CHANGELOG.md` under `Unreleased` for anything users will notice.
 
 ### Sign your commits (DCO)
 
@@ -80,7 +105,7 @@ It is a one-line statement that you have the right to submit the code. Add it
 with `-s`:
 
 ```sh
-git commit -s -m "Add CSV connector"
+git commit -s -m "feat(connectors): add CSV connector"
 ```
 
 This adds `Signed-off-by: Your Name <you@example.com>` to the commit. A bot

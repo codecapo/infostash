@@ -8,4 +8,3 @@ repository.workspace = true
 
 [dependencies]
 infostash-model.workspace = true
-infostash-engine.workspace = true

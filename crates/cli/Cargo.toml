@@ -7,9 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-infostash-model.workspace = true
-infostash-compiler.workspace = true
-infostash-jobs.workspace = true
 
 [[bin]]
 name = "infoctl"

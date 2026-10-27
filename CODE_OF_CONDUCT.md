@@ -13,8 +13,10 @@ community chat, events and anywhere you represent the project.
 
 ## Reporting
 
-Report unacceptable behavior privately to the maintainers at
-**conduct@REPLACE-WITH-PROJECT-DOMAIN**. Reports are handled confidentially.
+Report unacceptable behavior privately to the project maintainer,
+[@codecapo](https://github.com/codecapo), by email (the address on their
+GitHub profile). Reports are handled confidentially. A dedicated
+`conduct@` address will replace this once the project domain exists.
 Maintainers who are part of a report step out of handling it.
 
 Enforcement follows the Contributor Covenant's

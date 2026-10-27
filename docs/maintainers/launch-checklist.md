@@ -28,16 +28,21 @@ promises not to do. The docs in this repo assume DCO.
 
 ## 3. GitHub
 
-- [ ] Create the GitHub organization (**TODO: name**) and move the repo there.
-- [ ] Turn on two-factor authentication as required for all org members.
-- [ ] Repo settings: Issues on, Discussions on, Wiki off, squash merge only,
-      delete branches after merge.
-- [ ] Protect `main`: pull request required, one approval, CI must pass,
-      no force pushes, linear history.
+- [x] Repository created at `github.com/codecapo/infostash`.
+- [ ] Later: create a GitHub organization and transfer the repo to it
+      (GitHub redirects the old URL). Require two-factor auth for members.
+- [ ] Repo settings: Issues on, Discussions on, Wiki off, squash merge only
+      (title and description as the commit), delete branches after merge.
+- [ ] Protect `main`: pull request required, CI must pass, no force pushes,
+      no deletion, linear history. Require one approval once there is a
+      second maintainer (a sole maintainer cannot approve their own PR).
 - [ ] Install the [DCO GitHub App](https://github.com/apps/dco) and make its
       check required.
 - [ ] Turn on private vulnerability reporting, Dependabot alerts and secret scanning.
-- [ ] Add a `CODEOWNERS` file once there is more than one maintainer.
+- [x] Dependabot version updates (`.github/dependabot.yml`), cargo-deny,
+      typos and cargo-machete in CI, Conventional Commit titles checked.
+- [x] Release process written down in [releasing.md](releasing.md).
+- [x] `CODEOWNERS` file; add area owners as maintainers join.
 - [ ] Labels: `good first issue`, `help wanted`, `bug`, `enhancement`,
       `connector`, `rfc`, `needs triage`, plus one per area (`area/engine`, ...).
 - [ ] Topics and description on the repo page; social preview image.
