@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-datafusion = "53.1.0"
-iceberg-datafusion = "0.10.1"
+datafusion.workspace = true
+iceberg-datafusion.workspace = true
 infostash-model.workspace = true
 infostash-storage.workspace = true

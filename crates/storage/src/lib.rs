@@ -231,8 +231,9 @@ async fn files_added_since(table: &Table, after: SnapshotId) -> Result<HashSet<S
         if !range.contains(&manifest.added_snapshot_id) {
             continue;
         }
-        let manifest = manifest
-            .load_manifest(table.file_io())
+        let manifest = table
+            .manifest_reader()
+            .read(manifest)
             .await
             .map_err(storage)?;
         for entry in manifest.entries() {
@@ -254,7 +255,7 @@ async fn scan_current(table: &Table, only: Option<&HashSet<String>>) -> Result<V
         Some(only) => {
             let only = only.clone();
             tasks
-                .try_filter(move |t| std::future::ready(only.contains(&t.data_file_path)))
+                .try_filter(move |t| std::future::ready(only.contains(t.data_file_path())))
                 .boxed()
         }
     };
