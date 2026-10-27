@@ -1,0 +1,10 @@
+[package]
+name = "infostash-agent"
+description = "Semantic layer, chat and builder agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "infostash-compiler"
+description = "Turns SQL project files into a dependency graph and incremental plans"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true

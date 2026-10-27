@@ -1,0 +1,16 @@
+[package]
+name = "infostash-cli"
+description = "The infoctl command line"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true
+infostash-compiler.workspace = true
+infostash-jobs.workspace = true
+
+[[bin]]
+name = "infoctl"
+path = "src/main.rs"

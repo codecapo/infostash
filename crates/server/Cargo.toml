@@ -1,0 +1,12 @@
+[package]
+name = "infostash-server"
+description = "HTTP API, Postgres wire, Flight SQL and MCP endpoints"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true
+infostash-jobs.workspace = true
+infostash-agent.workspace = true

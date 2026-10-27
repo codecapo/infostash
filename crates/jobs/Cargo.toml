@@ -1,0 +1,11 @@
+[package]
+name = "infostash-jobs"
+description = "Job queue, scheduler and runners"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true
+infostash-dist.workspace = true

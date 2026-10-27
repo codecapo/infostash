@@ -1,0 +1,10 @@
+[package]
+name = "infostash-connectors"
+description = "Sources and sinks: files, Kafka, CDC, APIs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true

@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/infostash/infostash"
+
+[workspace.dependencies]
+infostash-model = { path = "crates/model" }
+infostash-compiler = { path = "crates/compiler" }
+infostash-engine = { path = "crates/engine" }
+infostash-dist = { path = "crates/dist" }
+infostash-storage = { path = "crates/storage" }
+infostash-connectors = { path = "crates/connectors" }
+infostash-jobs = { path = "crates/jobs" }
+infostash-server = { path = "crates/server" }
+infostash-agent = { path = "crates/agent" }

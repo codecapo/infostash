@@ -1,0 +1,11 @@
+[package]
+name = "infostash-dist"
+description = "Distributed stages, tasks and shuffle"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true
+infostash-engine.workspace = true

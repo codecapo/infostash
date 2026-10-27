@@ -1,0 +1,10 @@
+[package]
+name = "infostash-storage"
+description = "Object storage and Iceberg table access"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+infostash-model.workspace = true
