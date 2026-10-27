@@ -5,8 +5,8 @@ community. Tick them off in order. Items marked **TODO** need a decision.
 
 ## 1. Decide the basics
 
-- [x] Project name: **Infostash** (CLI: `infostash`).
-- [ ] Check the name is free: trademark search, crates.io, npm, the
+- [x] Project name: **Infostash** (CLI: `infoctl`).
+- [ ] Check the name is free: trademark search, crates.io and npm (both `infostash` and `infoctl`), the
       `infostash` GitHub org and domains. Reserve them all.
 - [ ] **TODO: domain** for the website, docs and contact emails.
 - [ ] **TODO: contact emails:** `security@`, `conduct@`, `hello@`.

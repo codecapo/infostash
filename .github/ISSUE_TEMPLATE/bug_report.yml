@@ -20,7 +20,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: Output of `infostash --version`, or the commit hash.
+      description: Output of `infoctl --version`, or the commit hash.
   - type: input
     id: env
     attributes:

@@ -47,7 +47,7 @@ machine to a merged pull request.
 | `crates/jobs` | Job queue, scheduler and runners |
 | `crates/agent` | Semantic layer, chat agent and builder agent |
 | `crates/server` | HTTP API, Postgres wire protocol, Flight SQL, MCP |
-| `crates/cli` | The `infostash` command line |
+| `crates/cli` | The `infoctl` command line |
 | `ui/` | Web UI (TypeScript), embedded into the binary |
 | `docs/` | Architecture, RFCs and maintainer guides |
 

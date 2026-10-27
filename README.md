@@ -26,10 +26,10 @@ ready for production. Star or watch the repo to follow along, and see
 ## Quick start (planned for the first release)
 
 ```sh
-infostash init my-project
+infoctl init my-project
 cd my-project
-infostash run
-infostash query "select * from gold.daily_revenue"
+infoctl run
+infoctl query "select * from gold.daily_revenue"
 ```
 
 ## Build from source
