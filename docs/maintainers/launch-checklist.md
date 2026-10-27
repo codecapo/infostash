@@ -5,9 +5,9 @@ community. Tick them off in order. Items marked **TODO** need a decision.
 
 ## 1. Decide the basics
 
-- [ ] **TODO: final project name.** `data-in-motion` and `dim` are working
-      names. Search trademarks, crates.io, npm, GitHub and domains before
-      choosing.
+- [x] Project name: **Infostash** (CLI: `infostash`).
+- [ ] Check the name is free: trademark search, crates.io, npm, the
+      `infostash` GitHub org and domains. Reserve them all.
 - [ ] **TODO: domain** for the website, docs and contact emails.
 - [ ] **TODO: contact emails:** `security@`, `conduct@`, `hello@`.
 - [ ] File the trademark for the name and logo in your main markets.

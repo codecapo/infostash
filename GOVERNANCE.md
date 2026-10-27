@@ -35,7 +35,7 @@ Decisions made in private chats are written up in a public issue.
 
 ## The open-core boundary
 
-data-in-motion is open core. The company behind it sells a hosted cloud
+Infostash is open core. The company behind it sells a hosted cloud
 service and enterprise features. To keep trust with the community, we commit to:
 
 **Always open source (Apache 2.0):**

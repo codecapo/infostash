@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping build data-in-motion. This guide gets you from a fresh
+Thanks for helping build Infostash. This guide gets you from a fresh
 machine to a merged pull request.
 
 ## Ways to help
@@ -20,8 +20,8 @@ machine to a merged pull request.
 2. Clone and build:
 
    ```sh
-   git clone https://github.com/data-in-motion/data-in-motion
-   cd data-in-motion
+   git clone https://github.com/infostash/infostash
+   cd infostash
    cargo build
    cargo test
    ```
@@ -47,7 +47,7 @@ machine to a merged pull request.
 | `crates/jobs` | Job queue, scheduler and runners |
 | `crates/agent` | Semantic layer, chat agent and builder agent |
 | `crates/server` | HTTP API, Postgres wire protocol, Flight SQL, MCP |
-| `crates/cli` | The `dim` command line |
+| `crates/cli` | The `infostash` command line |
 | `ui/` | Web UI (TypeScript), embedded into the binary |
 | `docs/` | Architecture, RFCs and maintainer guides |
 

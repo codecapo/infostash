@@ -7,7 +7,7 @@ something people can run.
 
 Goal: one binary that turns CSV files into Raw, Clean and Ready Iceberg tables.
 
-- `dim init`, `dim run`, `dim query`
+- `infostash init`, `infostash run`, `infostash query`
 - SQL models with `-- @key: value` directives, dependency graph from the SQL
 - Incremental runs: the second run processes only new rows
 - Row checks with a quarantine table for bad rows

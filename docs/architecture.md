@@ -1,6 +1,6 @@
 # Architecture
 
-A short tour of how data-in-motion fits together. Big changes to anything here
+A short tour of how Infostash fits together. Big changes to anything here
 go through an RFC.
 
 ## The three layers

@@ -1,6 +1,4 @@
-# data-in-motion
-
-> Working name. The CLI is called `dim` for now.
+# Infostash
 
 An open-source data platform written in Rust. Load data, clean it, and turn it
 into business-ready tables with plain SQL, then ask questions of it in plain
@@ -28,10 +26,10 @@ ready for production. Star or watch the repo to follow along, and see
 ## Quick start (planned for the first release)
 
 ```sh
-dim init my-project
+infostash init my-project
 cd my-project
-dim run
-dim query "select * from gold.daily_revenue"
+infostash run
+infostash query "select * from gold.daily_revenue"
 ```
 
 ## Build from source
@@ -40,8 +38,8 @@ You need [rustup](https://rustup.rs). The exact Rust version is pinned in
 `rust-toolchain.toml`, and rustup installs it automatically.
 
 ```sh
-git clone https://github.com/data-in-motion/data-in-motion
-cd data-in-motion
+git clone https://github.com/infostash/infostash
+cd infostash
 cargo build
 cargo test
 ```

@@ -6,7 +6,7 @@ is the short, strict version of it.
 
 ## Project in one paragraph
 
-data-in-motion is an open-source data platform in Rust. SQL pipelines move
+Infostash is an open-source data platform in Rust. SQL pipelines move
 data through Raw, Clean and Ready layers stored as Apache Iceberg tables on
 object storage. Execution uses Apache DataFusion and Arrow, split into stages
 and tasks so the same plan runs in one process or across many machines. See
