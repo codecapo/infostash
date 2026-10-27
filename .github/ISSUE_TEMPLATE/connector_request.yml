@@ -1,0 +1,30 @@
+name: Connector request
+description: Ask for a new source or destination, or offer to build one
+labels: ["connector", "needs triage"]
+body:
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: For example Salesforce, MongoDB, Google Sheets.
+    validations:
+      required: true
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Direction
+      options:
+        - Source (read from it)
+        - Destination (write to it)
+        - Both
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: API or protocol, auth method, data volume, how often it changes.
+  - type: checkboxes
+    id: build
+    attributes:
+      label: Building it
+      options:
+        - label: I'd like to build this connector myself

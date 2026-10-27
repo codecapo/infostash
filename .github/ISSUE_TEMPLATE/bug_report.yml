@@ -1,0 +1,33 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: ["bug", "needs triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Smallest set of commands, SQL or config that shows the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `dim --version`, or the commit hash.
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, storage (local, S3, GCS, Azure) and how you run it.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: shell
