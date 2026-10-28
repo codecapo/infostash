@@ -115,6 +115,50 @@ or Experimental.
   budgets, and a full audit log. A model gateway lets teams use any LLM,
   including one they host themselves.
 
+## What we build and what we reuse
+
+We reuse proven open-source foundations and build the parts that make
+Infostash useful, fast and cheap. Reusing the foundations keeps data in open
+formats any engine can read, and lets us spend our effort where users feel it.
+
+**Reused foundations**
+
+| Part | Project | Why we reuse it |
+|---|---|---|
+| In-memory columnar data | Apache Arrow | The standard format; zero-copy exchange with other tools |
+| Query engine (parse, optimize, execute SQL) | Apache DataFusion | Fast, extensible, and years of work by a large community |
+| Table format | Apache Iceberg | Open tables on object storage, readable by Spark, Trino, Snowflake and others |
+| File format | Apache Parquet | Columnar, compressed, supported everywhere |
+
+Many products are built the same way: InfluxDB 3, GreptimeDB and Spice AI on
+DataFusion, Dremio on Arrow and Iceberg. When we need something these projects
+lack, we build it, then offer it upstream.
+
+**What Infostash builds**
+
+1. **Pipeline compiler:** turns SQL models into a dependency graph and
+   incremental plans that decide what to run and what to skip.
+2. **Incremental engine:** processes only data added since the last run.
+   Iceberg's Rust library has no incremental scan, so we read the snapshot
+   history and manifests ourselves (`crates/storage`).
+3. **Data quality:** row checks that send bad rows to a quarantine table
+   instead of failing the run.
+4. **Distributed execution:** stages, tasks, shuffle, retries, compute pools
+   and scale to zero, so the same plan runs on a laptop or many machines.
+5. **Connector framework:** saves each source's read position in the same
+   Iceberg commit as its data, so a crash never loses or duplicates rows.
+6. **Caching and cost control:** results cached per table snapshot, warm
+   executor pools, spot machines for retryable work.
+7. **Semantic layer and agents:** a read-only chat agent answering from
+   defined metrics with the user's own permissions, and a builder agent that
+   works on a branch and needs approval.
+8. **Developer experience:** `infoctl`, project files, the web UI and a
+   five-minute quick start.
+
+The hard engineering, and the reason users choose Infostash, is in 1, 2, 4
+and 5: getting incremental, distributed and exactly-once processing right at
+petabyte scale is what makes it cheaper and faster.
+
 ## Crate map
 
 See the table in [CONTRIBUTING.md](../CONTRIBUTING.md#repository-layout).
