@@ -35,6 +35,26 @@ and tasks so the same plan runs in one process or across many machines. See
 - Do not add AI attribution trailers (`Co-Authored-By`) or "generated with"
   footers to commits or pull requests.
 
+## Working correctly
+
+- **Verify, don't recall.** Before using a library API, check it exists in the
+  version pinned in `Cargo.lock` (read the source under `~/.cargo/registry` or
+  `~/.cargo/git`, or docs.rs for that exact version).
+- **Done means checked.** A change is done only when every check above passes.
+  Show the command output; never say something passes without running it.
+- **Tests must prove behavior.** Each new test must fail if the code it covers
+  is broken. Don't weaken, skip or delete tests to get green.
+- **Don't silence checks.** No new `#[allow]`, `cargo deny` ignores, typos
+  exceptions or CI edits unless the task is about them; explain any you add.
+- **Stop and ask** when requirements are unclear, a decision is hard to
+  reverse, or the fix needs a public API, format or protocol change.
+- **Stay local.** Never push, open or merge pull requests, publish crates,
+  change repo settings or contact external services unless a person asks.
+- **No secrets.** Never read, print or commit credentials, tokens or `.env`
+  files, and never send them to external services.
+- **Report honestly.** Say what you did not do, what failed and what you are
+  unsure of.
+
 ## Key interfaces
 
 | Trait or type | Crate | Purpose |

@@ -113,18 +113,50 @@ checks every pull request for it. There is no separate agreement to sign.
 
 ## Using AI tools
 
-AI coding assistants (Claude, Copilot, Cursor and others) are welcome here. The
-core team uses them every day. The rules:
+AI coding assistants and agents (Claude Code, Codex, Cursor, Copilot and
+others) are welcome here. The core team uses them every day. The standard for
+the result is the same as for code you typed yourself.
+
+**You are responsible**
 
 - **You are the author.** You must understand every line you submit, be able
-  to explain it in review, and have run the tests yourself.
+  to explain it in review, and have run the checks yourself.
 - **Say so in the pull request** when an AI tool wrote a significant part of
   the change. There is a checkbox in the template. It doesn't count against
   you; it helps reviewers know where to look carefully.
+- **Don't add AI attribution to commits.** The pull request checkbox is the
+  disclosure; commit messages stay clean.
+
+**Check what the tool gives you**
+
+- **APIs must exist in the version we pin.** Assistants often invent functions
+  or use an older version's API. Check against the source in `Cargo.lock`'s
+  version (docs.rs or `~/.cargo/registry`), not memory.
+- **Tests must be able to fail.** A generated test can pass without testing
+  anything. Break the code on purpose once and make sure the test catches it.
+- **Don't let it make checks pass by weakening them:** no new `#[allow]`,
+  ignored advisories, skipped tests, loosened assertions or edits to CI
+  config without saying why in the pull request.
+- **Read the whole diff** before you push. Look for leftover debug code,
+  changes outside the task, and claims in comments that the code doesn't keep.
+
+**Keep it safe and legal**
+
+- **Never paste secrets, credentials or customer data** into a prompt.
+- **No copied code under incompatible licenses.** If output looks lifted from
+  another project, don't use it. Everything here must be Apache 2.0
+  compatible.
 - **No unreviewed bulk changes.** Don't open pull requests that reformat,
   rename or "improve" large areas of code without an issue agreeing to it.
-- **Agent instructions live in [AGENTS.md](AGENTS.md).** Point your assistant
-  at it so it follows the project's conventions.
+- **Agents don't act on their own outside your machine.** A person decides
+  when to push, open a pull request, publish or change repo settings.
+
+**One set of instructions**
+
+[AGENTS.md](AGENTS.md) holds the rules for every assistant. Codex and Cursor
+read it directly; `CLAUDE.md` and `.github/copilot-instructions.md` point to
+it. Change the rules there, not in tool-specific files, and update it in the
+same pull request as any convention change.
 
 ## Code style
 
