@@ -14,3 +14,6 @@ iceberg-datafusion.workspace = true
 # agree on one arrow version.
 [package.metadata.cargo-machete]
 ignored = ["datafusion", "iceberg-datafusion"]
+
+[lints]
+workspace = true

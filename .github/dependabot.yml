@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Wait a week before proposing a new release, so a compromised one is
+    # usually caught and yanked first.
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: deps
     groups:
@@ -16,5 +20,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Wait a week before proposing a new release, so a compromised one is
+    # usually caught and yanked first.
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: ci

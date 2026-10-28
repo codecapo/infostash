@@ -22,9 +22,12 @@ and tasks so the same plan runs in one process or across many machines. See
 
 - Run `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace`, `cargo deny check`, `typos` and `cargo machete`
-  before saying a change is done. Report failures as they are.
+  before saying a change is done. Report failures as they are. If you touch
+  docs comments, also run `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`;
+  if you touch `.github/`, also run `actionlint` and `zizmor .`.
 - Add or update tests for every behavior change.
-- No `unwrap()` or `expect()` in library code paths that can fail at runtime.
+- No `unwrap()`, `expect()`, `panic!`, `todo!` or `dbg!` in library code; clippy
+  enforces this (tests may unwrap). No `unsafe`; the workspace forbids it.
 - Do not add dependencies without saying why in the pull request.
 - Keep changes to the task asked. No drive-by refactors or renames.
 - Never commit secrets, tokens or `.env` files.

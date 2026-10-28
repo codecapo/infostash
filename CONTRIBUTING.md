@@ -34,15 +34,25 @@ machine to a merged pull request.
    cargo test --workspace
    ```
 
-   CI also checks licenses and security advisories, spelling and unused
-   dependencies. To run those locally, install the tools once
+   CI also checks licenses and security advisories, spelling, unused
+   dependencies and docs. To run those locally, install the tools once
    (`cargo install cargo-deny typos-cli cargo-machete`), then:
 
    ```sh
    cargo deny check
    typos
    cargo machete
+   RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
    ```
+
+   If you change files under `.github/`, also run
+   [actionlint](https://github.com/rhysd/actionlint) and
+   [zizmor](https://docs.zizmor.sh) (`actionlint`, `zizmor .`).
+
+   CI also runs the tests on macOS, measures coverage, runs CodeQL security
+   analysis and OpenSSF Scorecard, and reviews new dependencies for known
+   vulnerabilities. Library code may not use `unwrap`, `expect`, `panic!` or
+   `unsafe`; clippy and the compiler enforce this.
 
 ## Repository layout
 

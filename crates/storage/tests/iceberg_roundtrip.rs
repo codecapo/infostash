@@ -1,6 +1,9 @@
 //! Week 1 proof: write an Iceberg table on local disk, commit, read it back,
 //! read only the rows added since a snapshot, and reopen it with no catalog.
 
+// Helpers outside #[test] fns unwrap too; a failure there is a test failure.
+#![allow(clippy::unwrap_used)]
+
 use std::sync::Arc;
 
 use arrow_array::{Int64Array, RecordBatch, StringArray};
