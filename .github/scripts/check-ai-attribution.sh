@@ -8,10 +8,12 @@
 set -euo pipefail
 
 tools='claude|anthropic|openai|chatgpt|gpt-[0-9]|codex|copilot|cursor|gemini|devin|aider|windsurf|codeium'
+# Whole lines only, so prose that mentions a tool or these rules still passes.
 patterns=(
-  "^[[:space:]]*co-authored-by:.*(${tools})"
-  "generated (with|by) .*(${tools})"
-  "noreply@anthropic\.com"
+  # Trailers: Co-authored-by, Assisted-by, Generated-by and the like.
+  "^[[:space:]]*[a-z-]+-by:.*(${tools})"
+  # Footers such as "Generated with [Claude Code](...)", with or without an emoji.
+  "^[^[:alnum:]]*generated (with|by) \\[?(${tools})"
 )
 
 text=$(cat "$@")
