@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews every pull request. Its review is advice: it is not a
+# required check, never approves, and never commits. A maintainer decides.
+language: en-GB
+tone_instructions: Be direct and brief. Only comment on real problems; skip praise and style nits that rustfmt or clippy already catch.
+
+reviews:
+  profile: assertive
+  # The PR description becomes the squash commit on main, so keep the
+  # summary in CodeRabbit's own comment, not in the description.
+  high_level_summary_in_walkthrough: true
+  auto_title_placeholder: ""
+  high_level_summary_placeholder: ""
+  poem: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: false
+  auto_approvals:
+    enabled: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: ["main", "\\d+\\.\\d+\\.x"]
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+  path_instructions:
+    - path: "crates/**/*.rs"
+      instructions: |
+        Check against AGENTS.md. In particular:
+        - No unwrap, expect, panic or unsafe in library code.
+        - Library APIs must exist in the versions pinned in Cargo.lock.
+        - Every behaviour change needs a test that would fail if the code broke.
+        - Only the job commit may write to a table, and commits are atomic.
+        - A connector's read position is committed in the same Iceberg commit as its data.
+    - path: ".github/**"
+      instructions: Check workflow permissions are minimal, actions are pinned to commit SHAs, and untrusted input is passed through env, never inlined into run scripts.
+    - path: "**/*.md"
+      instructions: Check that docs match the code. Flag em dashes; this project does not use them.
+  tools:
+    clippy:
+      enabled: true
+    shellcheck:
+      enabled: true
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    gitleaks:
+      enabled: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns: ["AGENTS.md", "CONTRIBUTING.md"]
+
+chat:
+  auto_reply: true

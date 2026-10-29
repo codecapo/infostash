@@ -110,6 +110,12 @@ machine to a merged pull request.
 - Write the summary in the imperative and lower case, with no full stop.
 - Commits inside your branch can be anything you like; only the title lands on `main`.
 - Add a line to `CHANGELOG.md` under `Unreleased` for anything users will notice.
+- [CodeRabbit](https://coderabbit.ai) reviews every pull request automatically
+  (config in `.coderabbit.yaml`). Treat its comments as advice: fix what is
+  right, reply to what is not. A maintainer's review decides the merge.
+- Every review thread must be resolved before merging. If a finding is real
+  but belongs in another pull request, reply `@coderabbitai create an issue
+  for this` and resolve the thread once the issue exists, so nothing is lost.
 
 ### Sign your commits (DCO)
 
