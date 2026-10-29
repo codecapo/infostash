@@ -3,6 +3,12 @@
 A short tour of how Infostash fits together. Big changes to anything here
 go through an RFC.
 
+![Infostash architecture: clients, control plane, data plane and object storage](architecture.svg)
+
+Blue arrows follow one pipeline run: the compiler plans it, the scheduler
+hands the coordinator a job, executors read only new snapshots and write
+staged files, and the coordinator makes one atomic Iceberg commit.
+
 ## The three layers
 
 | Layer | Holds | Written by |

@@ -29,6 +29,10 @@ ready for production. Star or watch the repo to follow along, and see
   a builder agent drafts pipelines on a branch for a person to approve.
 - **Open connectors:** write a source in YAML, Rust or any language via Wasm.
 
+![Infostash architecture](docs/architecture.svg)
+
+How it fits together: [docs/architecture.md](docs/architecture.md).
+
 ## Quick start (planned for the first release)
 
 ```sh

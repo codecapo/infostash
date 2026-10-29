@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 880" width="1200" height="880" role="img" aria-labelledby="t d">
+  <title id="t">Infostash architecture</title>
+  <desc id="d">Clients reach a small control plane that compiles SQL projects into incremental plans and schedules jobs. A data plane of executor pools runs each job as stages and tasks, writes staged files to the user's object storage, and makes one atomic Iceberg commit. Tables move from Raw to Clean to Ready, failing rows go to quarantine, and other engines read the same Iceberg tables.</desc>
+  <style>
+    :root { --bg:#ffffff; --fg:#1f2328; --muted:#59636e; --panel:#f6f8fa; --box:#ffffff; --line:#d1d9e0; --accent:#0969da; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --panel:#151b23; --box:#0d1117; --line:#3d444d; --accent:#4493f8; }
+    }
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--fg); }
+    .bg { fill: var(--bg); }
+    .h1 { font-size: 20px; font-weight: 600; }
+    .lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; fill: var(--muted); }
+    .t { font-size: 13px; font-weight: 600; text-anchor: middle; }
+    .s { font-size: 11px; fill: var(--muted); text-anchor: middle; }
+    .n { font-size: 12px; }
+    .e { font-size: 11px; fill: var(--muted); }
+    .a { font-size: 11px; fill: var(--accent); font-weight: 600; }
+    .panel { fill: var(--panel); stroke: var(--line); }
+    .box { fill: var(--box); stroke: var(--line); }
+    .note { fill: none; stroke: var(--line); stroke-dasharray: 4 4; }
+    .ln { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+    .ac { fill: none; stroke: var(--accent); stroke-width: 2; }
+    .dash { stroke-dasharray: 5 4; }
+    .hd { fill: var(--muted); }
+    .ha { fill: var(--accent); }
+  </style>
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hd" d="M0 0 L10 5 L0 10 z"/></marker>
+    <marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ha" d="M0 0 L10 5 L0 10 z"/></marker>
+  </defs>
+
+  <rect class="bg" width="1200" height="880"/>
+  <text class="h1" x="40" y="36">Infostash architecture</text>
+
+  <!-- Clients -->
+  <text class="lbl" x="40" y="66">CLIENTS</text>
+  <rect class="box" x="40" y="76" width="156" height="50" rx="6"/>
+  <text class="t" x="118" y="97">infoctl and web UI</text><text class="s" x="118" y="114">local or HTTP API</text>
+  <rect class="box" x="216" y="76" width="156" height="50" rx="6"/>
+  <text class="t" x="294" y="97">BI tools</text><text class="s" x="294" y="114">Postgres wire protocol</text>
+  <rect class="box" x="392" y="76" width="156" height="50" rx="6"/>
+  <text class="t" x="470" y="97">Python, notebooks</text><text class="s" x="470" y="114">Arrow Flight SQL, ADBC</text>
+  <rect class="box" x="568" y="76" width="156" height="50" rx="6"/>
+  <text class="t" x="646" y="97">Apps and scripts</text><text class="s" x="646" y="114">HTTP API</text>
+  <rect class="box" x="744" y="76" width="156" height="50" rx="6"/>
+  <text class="t" x="822" y="97">AI assistants</text><text class="s" x="822" y="114">MCP</text>
+  <path class="ln" d="M118 126V143M294 126V143M470 126V143M646 126V143M822 126V143M118 143H822"/>
+
+  <!-- Control plane -->
+  <rect class="panel" x="40" y="160" width="860" height="180" rx="10"/>
+  <text class="lbl" x="880" y="180" text-anchor="end">CONTROL PLANE · SMALL, ALWAYS ON</text>
+  <rect class="box" x="60" y="192" width="175" height="60" rx="6"/>
+  <text class="t" x="147" y="217">API gateway</text><text class="s" x="147" y="235">auth, roles, rate limits</text>
+  <rect class="box" x="275" y="192" width="175" height="60" rx="6"/>
+  <text class="t" x="362" y="217">Project service</text><text class="s" x="362" y="235">SQL and YAML, in git</text>
+  <rect class="box" x="490" y="192" width="175" height="60" rx="6"/>
+  <text class="t" x="577" y="217">Compiler</text><text class="s" x="577" y="235">graph, incremental plans</text>
+  <rect class="box" x="705" y="192" width="175" height="60" rx="6"/>
+  <text class="t" x="792" y="217">Scheduler</text><text class="s" x="792" y="235">job queue on Postgres</text>
+  <path class="ln" d="M235 228H273" marker-end="url(#m)"/><text class="e" x="255" y="220" text-anchor="middle">edits</text>
+  <path class="ln" d="M450 228H488" marker-end="url(#m)"/><text class="e" x="470" y="220" text-anchor="middle">SQL</text>
+  <path class="ac" d="M665 228H703" marker-end="url(#ma)"/><text class="a" x="685" y="220" text-anchor="middle">plan</text>
+
+  <rect class="box" x="60" y="268" width="186" height="54" rx="6"/>
+  <text class="t" x="153" y="291">Semantic layer, agents</text><text class="s" x="153" y="309">metrics, chat, builder</text>
+  <rect class="box" x="266" y="268" width="186" height="54" rx="6"/>
+  <text class="t" x="359" y="291">Metering and audit</text><text class="s" x="359" y="309">usage, lineage, logs</text>
+  <rect class="box" x="472" y="268" width="186" height="54" rx="6"/>
+  <text class="t" x="565" y="291">Iceberg catalog</text><text class="s" x="565" y="309">REST, table metadata</text>
+
+
+  <!-- Data plane -->
+  <rect class="panel" x="40" y="380" width="860" height="230" rx="10"/>
+  <text class="lbl" x="60" y="400">DATA PLANE · SCALES WITH WORK, DOWN TO ZERO</text>
+  <rect class="box" x="60" y="412" width="610" height="88" rx="6"/>
+  <text class="n" x="75" y="433"><tspan font-weight="600">Executors</tspan><tspan fill="var(--muted)"> · Apache DataFusion and Arrow, one pool per workload</tspan></text>
+  <rect class="panel" x="70" y="444" width="140" height="44" rx="5"/><text class="t" x="140" y="471">Ingest</text>
+  <rect class="panel" x="220" y="444" width="140" height="44" rx="5"/><text class="t" x="290" y="471">Pipelines</text>
+  <rect class="panel" x="370" y="444" width="140" height="44" rx="5"/><text class="t" x="440" y="471">BI</text>
+  <rect class="panel" x="520" y="444" width="140" height="44" rx="5"/><text class="t" x="590" y="471">Agents</text>
+  <rect class="box" x="705" y="412" width="175" height="60" rx="6"/>
+  <text class="t" x="792" y="437">Coordinator</text><text class="s" x="792" y="455">splits plans into stages</text>
+  <path class="ac" d="M705 450H672" marker-end="url(#ma)"/><text class="a" x="688" y="442" text-anchor="middle">tasks</text>
+
+  <rect class="box" x="60" y="520" width="230" height="70" rx="6"/>
+  <text class="t" x="175" y="549">Shuffle</text><text class="s" x="175" y="567">Arrow Flight, disk then storage</text>
+  <path class="ln" d="M175 502V518" marker-start="url(#m)" marker-end="url(#m)"/>
+  <rect class="box" x="310" y="520" width="210" height="70" rx="6"/>
+  <text class="t" x="415" y="549">Maintenance</text><text class="s" x="415" y="567">compaction, snapshot expiry</text>
+  <rect class="box" x="540" y="520" width="130" height="70" rx="6"/>
+  <text class="t" x="605" y="549">Caches</text><text class="s" x="605" y="567">results, metadata</text>
+  <rect class="box" x="705" y="520" width="175" height="70" rx="6"/>
+  <text class="t" x="792" y="549">Connectors</text><text class="s" x="792" y="567">run in the ingest pool</text>
+
+
+  <!-- Storage -->
+  <rect class="panel" x="40" y="650" width="860" height="210" rx="10"/>
+  <text class="lbl" x="60" y="674">YOUR OBJECT STORAGE · S3, GCS, AZURE BLOB, MINIO OR LOCAL DISK</text>
+  <rect class="box" x="60" y="695" width="180" height="60" rx="6"/>
+  <text class="t" x="150" y="720">Raw</text><text class="s" x="150" y="738">bronze · as it arrived</text>
+  <rect class="box" x="290" y="695" width="180" height="60" rx="6"/>
+  <text class="t" x="380" y="720">Clean</text><text class="s" x="380" y="738">silver · typed, checked</text>
+  <rect class="box" x="520" y="695" width="180" height="60" rx="6"/>
+  <text class="t" x="610" y="720">Ready</text><text class="s" x="610" y="738">gold · business tables</text>
+  <rect class="box dash" x="740" y="695" width="140" height="60" rx="6"/>
+  <text class="t" x="810" y="720">Staging</text><text class="s" x="810" y="738">files per task</text>
+  <path class="ln" d="M240 725H288" marker-end="url(#m)"/><text class="e" x="264" y="717" text-anchor="middle">SQL</text>
+  <path class="ln" d="M470 725H518" marker-end="url(#m)"/><text class="e" x="494" y="717" text-anchor="middle">SQL</text>
+  <path class="ac dash" d="M740 740H702" marker-end="url(#ma)"/>
+  <rect class="box" x="290" y="790" width="180" height="50" rx="6"/>
+  <text class="t" x="380" y="811">Quarantine</text><text class="s" x="380" y="828">rows that fail checks</text>
+  <path class="ln" d="M380 755V788" marker-end="url(#m)"/><text class="e" x="388" y="776">failed checks</text>
+  <text class="e" x="520" y="811">Every table is an Apache Iceberg table</text>
+  <text class="e" x="520" y="828">of Parquet files, in a bucket you own.</text>
+
+  <!-- Right column -->
+  <rect class="note" x="940" y="160" width="220" height="180" rx="10"/>
+  <text class="n" x="960" y="188" font-weight="600">Phase 0: one laptop</text>
+  <text class="e" x="960" y="212">Everything on this page runs</text>
+  <text class="e" x="960" y="229">inside one infoctl process,</text>
+  <text class="e" x="960" y="246">on local disk.</text>
+  <text class="e" x="960" y="272">In production the same plan</text>
+  <text class="e" x="960" y="289">runs across many machines.</text>
+  <text class="e" x="960" y="306">Only the Runner changes.</text>
+
+  <rect class="box" x="940" y="520" width="220" height="70" rx="6"/>
+  <text class="t" x="1050" y="549">Sources</text><text class="s" x="1050" y="567">databases, files, APIs, Kafka</text>
+  <path class="ln" d="M940 555H882" marker-end="url(#m)"/><text class="e" x="911" y="547" text-anchor="middle">rows</text>
+
+  <rect class="box" x="940" y="695" width="220" height="60" rx="6"/>
+  <text class="t" x="1050" y="720">Other engines</text><text class="s" x="1050" y="738">Spark, Trino, Snowflake, Databricks</text>
+  <path class="ln" d="M940 725H902" marker-end="url(#m)"/><text class="e" x="921" y="717" text-anchor="middle">read</text>
+
+  <!-- Legend -->
+  <path class="ac" d="M940 815H980" marker-end="url(#ma)"/>
+  <text class="e" x="990" y="819">path of a pipeline run</text>
+
+  <!-- Arrows between panels, drawn last so they sit on top -->
+  <path class="ln" d="M147 143V190" marker-end="url(#m)"/>
+  <path class="ac" d="M792 252V410" marker-end="url(#ma)"/><text class="a" x="800" y="368">Job</text>
+  <path class="ac" d="M720 412V360H565V324" marker-end="url(#ma)"/><text class="a" x="642" y="375" text-anchor="middle">one atomic commit</text>
+  <path class="ac" d="M250 650V612" marker-end="url(#ma)"/><text class="a" x="258" y="636">read only new snapshots</text>
+  <path class="ac" d="M760 612V693" marker-end="url(#ma)"/><text class="a" x="752" y="636" text-anchor="end">write staged files</text>
+</svg>
