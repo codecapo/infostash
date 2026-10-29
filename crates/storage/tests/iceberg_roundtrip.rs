@@ -92,3 +92,34 @@ async fn write_commit_read_incremental_and_reopen() {
         .unwrap();
     assert_eq!(ids(&old), [1, 2, 3]);
 }
+
+#[tokio::test]
+async fn tables_share_a_layer_and_names_are_unique() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    let orders = TableRef::new(Layer::Raw, "orders");
+    let customers = TableRef::new(Layer::Raw, "customers");
+
+    wh.create_table(&orders, &schema()).await.unwrap();
+    wh.create_table(&customers, &schema()).await.unwrap();
+    assert!(wh.create_table(&orders, &schema()).await.is_err());
+
+    // An empty table has nothing to read, from any snapshot.
+    assert!(wh.read_since(&customers, Some(1)).await.unwrap().is_empty());
+    assert!(wh.snapshots(&customers).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn missing_tables_and_directories_are_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    assert!(
+        Warehouse::open_local(&dir.path().join("missing"))
+            .await
+            .is_err()
+    );
+
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    let ghost = TableRef::new(Layer::Ready, "ghost");
+    assert!(wh.read_all(&ghost).await.is_err());
+    assert!(wh.append(&ghost, &[]).await.is_err());
+}

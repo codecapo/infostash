@@ -1,0 +1,11 @@
+# CI enforces the 95% line coverage floor itself (cargo llvm-cov
+# --fail-under-lines 95). These targets make Codecov report against the same
+# floor, for the whole project and for the lines each pull request changes.
+coverage:
+  status:
+    project:
+      default:
+        target: 95%
+    patch:
+      default:
+        target: 95%

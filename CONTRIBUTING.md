@@ -49,9 +49,10 @@ machine to a merged pull request.
    [actionlint](https://github.com/rhysd/actionlint) and
    [zizmor](https://docs.zizmor.sh) (`actionlint`, `zizmor .`).
 
-   CI also runs the tests on macOS, measures coverage, runs CodeQL security
-   analysis and OpenSSF Scorecard, and reviews new dependencies for known
-   vulnerabilities. Library code may not use `unwrap`, `expect`, `panic!` or
+   CI also runs the tests on macOS and requires at least 95% line coverage
+   (check with `cargo llvm-cov --workspace --fail-under-lines 95`, after
+   `cargo install cargo-llvm-cov`). It also runs CodeQL security analysis and
+   OpenSSF Scorecard, and reviews new dependencies for known vulnerabilities. Library code may not use `unwrap`, `expect`, `panic!` or
    `unsafe`; clippy and the compiler enforce this.
 
 ## Repository layout

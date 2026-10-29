@@ -25,7 +25,9 @@ and tasks so the same plan runs in one process or across many machines. See
   before saying a change is done. Report failures as they are. If you touch
   docs comments, also run `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`;
   if you touch `.github/`, also run `actionlint` and `zizmor .`.
-- Add or update tests for every behavior change.
+- Add or update tests for every behavior change. CI fails below 95% line
+  coverage (`cargo llvm-cov --workspace --fail-under-lines 95`); add tests
+  rather than excluding code.
 - No `unwrap()`, `expect()`, `panic!`, `todo!` or `dbg!` in library code; clippy
   enforces this (tests may unwrap). No `unsafe`; the workspace forbids it.
 - Do not add dependencies without saying why in the pull request.
