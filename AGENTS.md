@@ -15,6 +15,7 @@ and tasks so the same plan runs in one process or across many machines. See
 ## Before you change anything
 
 - Read the crate's `lib.rs` doc comment and the types in `crates/model`.
+- Check `docs/adr/` before changing a recorded decision; don't work against one.
 - For a new public API, file format or protocol, stop and ask for an RFC
   (`docs/rfcs/0000-template.md`) instead of implementing directly.
 
