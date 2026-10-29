@@ -27,5 +27,5 @@ The comparison is in the
   products. Without a CLA the company cannot relicense community code, which
   matches the promise in [GOVERNANCE.md](../../GOVERNANCE.md) never to change
   the license of released code.
-- Commits without a sign-off can't be merged. The DCO check is still to be
-  installed (see the launch checklist).
+- Every commit needs a sign-off. Until the DCO check is installed (see the
+  launch checklist), maintainers check for it before merging.

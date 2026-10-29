@@ -159,7 +159,8 @@ is, and needs a new RFC and a `format` bump.
 
 The current `directives()` function in `crates/compiler` reads directives
 from every comment line and keeps one value per key. It must change to read
-the header only and to allow repeated `@check`.
+the header only and to allow repeated `@check`. Until then, the compiler does
+not implement these rules.
 
 ## Open questions
 

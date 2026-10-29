@@ -48,7 +48,8 @@ Goal: production use at terabyte scale.
 ## How to influence the roadmap
 
 Comment on or upvote roadmap issues, open a Discussion, or write an RFC.
-Each phase has a tracking issue (label `tracking`) whose sub-issues list the
+Phase 0 is tracked in [#19](https://github.com/codecapo/infostash/issues/19); each later phase gets a tracking issue (label
+`tracking`) when its work starts. A tracking issue's sub-issues list the
 work, the crate it touches and what it depends on. Items with no open
 dependencies are ready to pick up.
 Maintainers review the roadmap at each release.

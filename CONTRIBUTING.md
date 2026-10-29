@@ -127,8 +127,10 @@ with `-s`:
 git commit -s -m "feat(connectors): add CSV connector"
 ```
 
-This adds `Signed-off-by: Your Name <you@example.com>` to the commit. A bot
-checks every pull request for it. There is no separate agreement to sign.
+This adds `Signed-off-by: Your Name <you@example.com>` to the commit.
+Maintainers check for it before merging; a DCO check on every pull request
+will enforce it once the DCO app is installed. There is no separate agreement
+to sign.
 
 ## Using AI tools
 

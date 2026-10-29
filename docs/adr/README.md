@@ -16,9 +16,9 @@ An accepted RFC can be summarised as an ADR. Write a new ADR when you make a
 choice that is hard to reverse or that a reader would otherwise question:
 a dependency, a storage layout, an invariant.
 
-ADRs are never edited after they are accepted, except for typos and links.
-To change a decision, write a new ADR and mark the old one
-**Superseded by NNNN**.
+ADRs are never edited after they are accepted, except for typos, links and
+the status line. To change a decision, write a new ADR and change the old
+one's status to **Superseded by NNNN**.
 
 ## Format
 
