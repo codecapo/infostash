@@ -1,5 +1,11 @@
 # Infostash
 
+[![CI](https://github.com/codecapo/infostash/actions/workflows/ci.yml/badge.svg)](https://github.com/codecapo/infostash/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/codecapo/infostash/actions/workflows/codeql.yml/badge.svg)](https://github.com/codecapo/infostash/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/codecapo/infostash/graph/badge.svg)](https://codecov.io/gh/codecapo/infostash)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/codecapo/infostash/badge)](https://scorecard.dev/viewer/?uri=github.com/codecapo/infostash)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 An open-source data platform written in Rust. Load data, clean it, and turn it
 into business-ready tables with plain SQL, then ask questions of it in plain
 English. It runs on AWS, GCP, Azure or your own servers, stores everything in

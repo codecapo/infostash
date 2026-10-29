@@ -11,3 +11,6 @@ repository.workspace = true
 [[bin]]
 name = "infoctl"
 path = "src/main.rs"
+
+[lints]
+workspace = true

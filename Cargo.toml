@@ -29,3 +29,16 @@ iceberg = { git = "https://github.com/apache/iceberg-rust", rev = "5b82ab99aeaf5
 iceberg-datafusion = { git = "https://github.com/apache/datafusion-iceberg", rev = "7fb643f850e23e2764f742cf84088a5b7c07d33c" }
 parquet = "59.2"
 
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+# CI runs clippy with -D warnings, so these fail the build. Tests may still
+# unwrap (see clippy.toml); library code returns errors instead of panicking.
+[workspace.lints.clippy]
+dbg_macro = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_used = "warn"

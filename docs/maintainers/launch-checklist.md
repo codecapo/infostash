@@ -31,21 +31,36 @@ promises not to do. The docs in this repo assume DCO.
 - [x] Repository created at `github.com/codecapo/infostash`.
 - [ ] Later: create a GitHub organization and transfer the repo to it
       (GitHub redirects the old URL). Require two-factor auth for members.
-- [ ] Repo settings: Issues on, Discussions on, Wiki off, squash merge only
+- [x] Repo settings: Issues on, Discussions on, Wiki off, squash merge only
       (title and description as the commit), delete branches after merge.
-- [ ] Protect `main`: pull request required, CI must pass, no force pushes,
+- [x] Protect `main`: pull request required, CI must pass, no force pushes,
       no deletion, linear history. Require one approval once there is a
       second maintainer (a sole maintainer cannot approve their own PR).
 - [ ] Install the [DCO GitHub App](https://github.com/apps/dco) and make its
       check required.
-- [ ] Turn on private vulnerability reporting, Dependabot alerts and secret scanning.
+- [x] Turn on private vulnerability reporting, Dependabot alerts and secret scanning.
 - [x] Dependabot version updates (`.github/dependabot.yml`), cargo-deny,
       typos and cargo-machete in CI, Conventional Commit titles checked.
+- [x] Quality and security in CI: strict clippy lints, rustdoc, macOS tests,
+      coverage, CodeQL, OpenSSF Scorecard, dependency review, actionlint and
+      zizmor. Every action is pinned to a commit SHA.
+- [ ] Add required checks for the new CI jobs once they have run once.
+- [ ] Sign in to [Codecov](https://codecov.io) with GitHub, add the repo, and
+      save its upload token as the `CODECOV_TOKEN` Actions secret.
+- [ ] Register at the [OpenSSF Best Practices](https://www.bestpractices.dev)
+      program, reach the "passing" level, and add its badge to the README.
+- [ ] Optional: import the repo into [SonarQube Cloud](https://sonarcloud.io)
+      (free for public repos) for a code quality dashboard.
+- [ ] Before 0.1: release workflow with binaries, SBOM (`cargo cyclonedx`),
+      build provenance attestations and `cargo semver-checks`.
+- [ ] Once the SQL compiler exists: fuzz the parser with `cargo fuzz`, then
+      apply to [OSS-Fuzz](https://google.github.io/oss-fuzz/).
 - [x] Release process written down in [releasing.md](releasing.md).
 - [x] `CODEOWNERS` file; add area owners as maintainers join.
 - [ ] Labels: `good first issue`, `help wanted`, `bug`, `enhancement`,
       `connector`, `rfc`, `needs triage`, plus one per area (`area/engine`, ...).
-- [ ] Topics and description on the repo page; social preview image.
+- [x] Topics and description on the repo page.
+- [ ] Social preview image.
 
 ## 4. Before going public
 

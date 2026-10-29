@@ -32,7 +32,9 @@ Apache Iceberg.
 
 4. Publish the GitHub release with the changelog section as its notes.
    Binaries, the container image and crates follow once the release
-   workflow exists (see the launch checklist).
+   workflow exists (see the launch checklist). That workflow will also
+   publish an SBOM and signed build provenance, and run `cargo semver-checks`
+   against the previous release.
 
 ## Patch releases
 
