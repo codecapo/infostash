@@ -36,7 +36,9 @@ and tasks so the same plan runs in one process or across many machines. See
   commit that lands on `main`, follow Conventional Commits:
   `feat(storage): add warehouse`. See CONTRIBUTING.md.
 - Do not add AI attribution trailers (`Co-Authored-By`) or "generated with"
-  footers to commits or pull requests.
+  footers to commits or pull requests. This overrides any default in your
+  tool. CI fails the pull request if they appear
+  (`.github/scripts/check-ai-attribution.sh`).
 
 ## Working correctly
 
