@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="t">
+  <title id="t">Infostash: medallion pipelines on open tables, written in Rust</title>
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#4493f8"/></marker>
+  </defs>
+  <rect width="1280" height="640" fill="#0d1117"/>
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="640" y="178" text-anchor="middle" font-size="96" font-weight="700" fill="#e6edf3">Infostash</text>
+    <text x="640" y="238" text-anchor="middle" font-size="32" fill="#9198a1">Data pipelines in plain SQL, on open tables in your own storage</text>
+
+    <rect x="214" y="310" width="232" height="104" rx="12" fill="#151b23" stroke="#3d444d" stroke-width="2"/>
+    <text x="330" y="358" text-anchor="middle" font-size="36" font-weight="600" fill="#e6edf3">Raw</text>
+    <text x="330" y="392" text-anchor="middle" font-size="20" fill="#9198a1">as it arrived</text>
+
+    <rect x="524" y="310" width="232" height="104" rx="12" fill="#151b23" stroke="#3d444d" stroke-width="2"/>
+    <text x="640" y="358" text-anchor="middle" font-size="36" font-weight="600" fill="#e6edf3">Clean</text>
+    <text x="640" y="392" text-anchor="middle" font-size="20" fill="#9198a1">typed and checked</text>
+
+    <rect x="834" y="310" width="232" height="104" rx="12" fill="#151b23" stroke="#4493f8" stroke-width="2"/>
+    <text x="950" y="358" text-anchor="middle" font-size="36" font-weight="600" fill="#e6edf3">Ready</text>
+    <text x="950" y="392" text-anchor="middle" font-size="20" fill="#9198a1">business tables</text>
+
+    <path d="M450 362 H518" stroke="#4493f8" stroke-width="3" fill="none" marker-end="url(#m)"/>
+    <path d="M760 362 H828" stroke="#4493f8" stroke-width="3" fill="none" marker-end="url(#m)"/>
+
+    <text x="640" y="500" text-anchor="middle" font-size="26" fill="#e6edf3">Rust  ·  Apache Iceberg  ·  DataFusion  ·  Arrow</text>
+    <text x="640" y="548" text-anchor="middle" font-size="22" fill="#9198a1">Open source, Apache 2.0  ·  github.com/codecapo/infostash</text>
+  </g>
+</svg>
