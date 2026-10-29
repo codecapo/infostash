@@ -110,6 +110,9 @@ machine to a merged pull request.
 - [CodeRabbit](https://coderabbit.ai) reviews every pull request automatically
   (config in `.coderabbit.yaml`). Treat its comments as advice: fix what is
   right, reply to what is not. A maintainer's review decides the merge.
+- Every review thread must be resolved before merging. If a finding is real
+  but belongs in another pull request, reply `@coderabbitai create an issue
+  for this` and resolve the thread once the issue exists, so nothing is lost.
 
 ### Sign your commits (DCO)
 
