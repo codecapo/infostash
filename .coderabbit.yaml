@@ -38,15 +38,17 @@ reviews:
       instructions: Check workflow permissions are minimal, actions are pinned to commit SHAs, and untrusted input is passed through env, never inlined into run scripts.
     - path: "**/*.md"
       instructions: Check that docs match the code. Flag em dashes; this project does not use them.
+  # CI already runs clippy, actionlint and zizmor and fails the pull
+  # request on their findings, so CodeRabbit doesn't repeat them.
   tools:
     clippy:
-      enabled: true
+      enabled: false
     shellcheck:
       enabled: true
     actionlint:
-      enabled: true
+      enabled: false
     zizmor:
-      enabled: true
+      enabled: false
     gitleaks:
       enabled: true
 
