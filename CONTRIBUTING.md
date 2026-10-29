@@ -134,8 +134,11 @@ the result is the same as for code you typed yourself.
 - **Say so in the pull request** when an AI tool wrote a significant part of
   the change. There is a checkbox in the template. It doesn't count against
   you; it helps reviewers know where to look carefully.
-- **Don't add AI attribution to commits.** The pull request checkbox is the
-  disclosure; commit messages stay clean.
+- **Don't add AI attribution to commits or pull requests.** No
+  `Co-authored-by` trailers for AI tools and no "Generated with" footers.
+  The pull request checkbox is the disclosure. CI blocks attribution lines;
+  to catch them before you push, install the check as a commit hook:
+  `ln -s ../../.github/scripts/check-ai-attribution.sh .git/hooks/commit-msg`.
 
 **Check what the tool gives you**
 

@@ -1,0 +1,36 @@
+name: Attribution
+
+# Whoever opens a pull request is its author and has reviewed every line.
+# AI tools are welcome, but commits and PR text carry no AI attribution;
+# see "Using AI tools" in CONTRIBUTING.md.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: No AI attribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check commit messages
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: git log --format=%B "$BASE..$HEAD" | .github/scripts/check-ai-attribution.sh
+      # The title and description become the squash commit on main.
+      - name: Check pull request title and description
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s\n\n%s\n' "$TITLE" "$BODY" | .github/scripts/check-ai-attribution.sh
