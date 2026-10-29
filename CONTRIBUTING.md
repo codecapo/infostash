@@ -80,6 +80,9 @@ machine to a merged pull request.
 3. **Big or hard-to-reverse changes** (new crate, public API, file format,
    protocol, anything users will depend on): write an RFC. Copy
    `docs/rfcs/0000-template.md`, open it as a pull request, and discuss it there.
+4. **Decisions already made** are recorded as short ADRs in `docs/adr/`.
+   Read them before reopening a settled question; add one when you make a
+   choice that is hard to reverse.
 
 ### Pull request checklist
 
@@ -125,8 +128,10 @@ with `-s`:
 git commit -s -m "feat(connectors): add CSV connector"
 ```
 
-This adds `Signed-off-by: Your Name <you@example.com>` to the commit. A bot
-checks every pull request for it. There is no separate agreement to sign.
+This adds `Signed-off-by: Your Name <you@example.com>` to the commit.
+Maintainers check for it before merging; a DCO check on every pull request
+will enforce it once the DCO app is installed. There is no separate agreement
+to sign.
 
 ## Using AI tools
 
