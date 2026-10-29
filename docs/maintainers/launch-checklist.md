@@ -33,19 +33,22 @@ promises not to do. The docs in this repo assume DCO.
       (GitHub redirects the old URL). Require two-factor auth for members.
 - [x] Repo settings: Issues on, Discussions on, Wiki off, squash merge only
       (title and description as the commit), delete branches after merge.
-- [x] Protect `main`: pull request required, CI must pass, no force pushes,
-      no deletion, linear history. Require one approval once there is a
-      second maintainer (a sole maintainer cannot approve their own PR).
+- [x] Protect `main` with two rulesets. "main: everyone": pull request
+      required for all, required checks from GitHub Actions only, CodeQL
+      gate, no force pushes, no deletion, linear history, squash only.
+      "main: review": one code owner approval, which repo admins may bypass
+      only when merging a pull request.
 - [ ] Install the [DCO GitHub App](https://github.com/apps/dco) and make its
-      check required.
+      check required. CONTRIBUTING already says a bot checks sign-off, so
+      this is overdue.
 - [x] Turn on private vulnerability reporting, Dependabot alerts and secret scanning.
 - [x] Dependabot version updates (`.github/dependabot.yml`), cargo-deny,
       typos and cargo-machete in CI, Conventional Commit titles checked.
 - [x] Quality and security in CI: strict clippy lints, rustdoc, macOS tests,
       coverage, CodeQL, OpenSSF Scorecard, dependency review, actionlint and
       zizmor. Every action is pinned to a commit SHA.
-- [ ] Add required checks for the new CI jobs once they have run once.
-- [ ] Sign in to [Codecov](https://codecov.io) with GitHub, add the repo, and
+- [x] Add required checks for the new CI jobs once they have run once.
+- [x] Sign in to [Codecov](https://codecov.io) with GitHub, add the repo, and
       save its upload token as the `CODECOV_TOKEN` Actions secret.
 - [ ] Register at the [OpenSSF Best Practices](https://www.bestpractices.dev)
       program, reach the "passing" level, and add its badge to the README.
@@ -58,23 +61,36 @@ promises not to do. The docs in this repo assume DCO.
       apply to [OSS-Fuzz](https://google.github.io/oss-fuzz/).
 - [x] Release process written down in [releasing.md](releasing.md).
 - [x] `CODEOWNERS` file; add area owners as maintainers join.
-- [ ] Labels: `good first issue`, `help wanted`, `bug`, `enhancement`,
-      `connector`, `rfc`, `needs triage`, plus one per area (`area/engine`, ...).
+- [x] Labels: `good first issue`, `help wanted`, `bug`, `enhancement`,
+      `connector`, `rfc`, `needs triage`, `tracking`, `blocked`, plus one per
+      area (`area/engine`, ...).
+- [x] Milestone per release, with a tracking issue and sub-issues per phase.
+- [ ] Public GitHub Projects board built from the tracking issues, linked
+      from ROADMAP.md.
+- [x] Decision records in `docs/adr/`.
 - [x] Topics and description on the repo page.
-- [ ] Social preview image.
+- [ ] Social preview image, and the docs site as the repo's homepage URL.
 
-## 4. Before going public
+## 4. Before announcing it
+
+The repo is already public. These come before telling people about it.
 
 - [ ] Phase 0 works end to end with a 5-minute quick start.
-- [ ] Remove placeholder text in README, CODE_OF_CONDUCT and SECURITY.
+- [x] Remove placeholder text in README, CODE_OF_CONDUCT and SECURITY.
+      CODE_OF_CONDUCT uses the maintainer's email until a `conduct@`
+      address exists.
 - [ ] Docs site live (mdBook or Docusaurus) with install, quick start,
       concepts and "build a connector".
-- [ ] 15 to 20 `good first issue` items, each with clear steps.
-- [ ] Roadmap issues opened for each phase.
-- [ ] Check the git history for secrets before making the repo public.
+- [ ] 15 to 20 `good first issue` items, each with clear steps
+      (8 so far: #24 to #31).
+- [ ] Roadmap issues opened for each phase (Phase 0: #19).
+- [x] Check the git history for secrets. Secret scanning covers the whole
+      history and has no alerts.
 
 ## 5. Community
 
+- [x] Welcome post in Discussions (#32). Pin it so it stays at the top.
+- [ ] A second maintainer, so the project doesn't depend on one person.
 - [ ] Community chat (Discord or Slack) with channels: `#general`, `#help`,
       `#contributors`, `#connectors`, `#announcements`.
 - [ ] Monthly community call, recorded and posted.

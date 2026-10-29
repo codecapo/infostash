@@ -1,7 +1,8 @@
 # Architecture
 
 A short tour of how Infostash fits together. Big changes to anything here
-go through an RFC.
+go through an RFC. The reasons behind key choices are recorded as
+[architecture decision records](adr/README.md).
 
 ![Infostash architecture: clients, control plane, data plane and object storage](architecture.svg)
 

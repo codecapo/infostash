@@ -6,6 +6,7 @@ something people can run.
 ## Phase 0: First slice on a laptop
 
 Goal: one binary that turns CSV files into Raw, Clean and Ready Iceberg tables.
+Ships as 0.1.0. Progress: [tracking issue #19](https://github.com/codecapo/infostash/issues/19).
 
 - `infoctl init`, `infoctl run`, `infoctl query`
 - SQL models with `-- @key: value` directives, dependency graph from the SQL
@@ -47,4 +48,8 @@ Goal: production use at terabyte scale.
 ## How to influence the roadmap
 
 Comment on or upvote roadmap issues, open a Discussion, or write an RFC.
+Phase 0 is tracked in [#19](https://github.com/codecapo/infostash/issues/19); each later phase gets a tracking issue (label
+`tracking`) when its work starts. A tracking issue's sub-issues list the
+work, the crate it touches and what it depends on. Items with no open
+dependencies are ready to pick up.
 Maintainers review the roadmap at each release.
