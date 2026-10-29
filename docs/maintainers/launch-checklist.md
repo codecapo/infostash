@@ -49,6 +49,7 @@ promises not to do. The docs in this repo assume DCO.
       save its upload token as the `CODECOV_TOKEN` Actions secret.
 - [ ] Register at the [OpenSSF Best Practices](https://www.bestpractices.dev)
       program, reach the "passing" level, and add its badge to the README.
+- [x] AI code review with CodeRabbit (free for public repos), advisory only.
 - [ ] Optional: import the repo into [SonarQube Cloud](https://sonarcloud.io)
       (free for public repos) for a code quality dashboard.
 - [ ] Before 0.1: release workflow with binaries, SBOM (`cargo cyclonedx`),
