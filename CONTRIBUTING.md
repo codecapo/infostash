@@ -79,6 +79,9 @@ machine to a merged pull request.
 3. **Big or hard-to-reverse changes** (new crate, public API, file format,
    protocol, anything users will depend on): write an RFC. Copy
    `docs/rfcs/0000-template.md`, open it as a pull request, and discuss it there.
+4. **Decisions already made** are recorded as short ADRs in `docs/adr/`.
+   Read them before reopening a settled question; add one when you make a
+   choice that is hard to reverse.
 
 ### Pull request checklist
 
