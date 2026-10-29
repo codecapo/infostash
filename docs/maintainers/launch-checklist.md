@@ -39,7 +39,8 @@ promises not to do. The docs in this repo assume DCO.
       "main: review": one code owner approval, which repo admins may bypass
       only when merging a pull request.
 - [ ] Install the [DCO GitHub App](https://github.com/apps/dco) and make its
-      check required.
+      check required. CONTRIBUTING already says a bot checks sign-off, so
+      this is overdue.
 - [x] Turn on private vulnerability reporting, Dependabot alerts and secret scanning.
 - [x] Dependabot version updates (`.github/dependabot.yml`), cargo-deny,
       typos and cargo-machete in CI, Conventional Commit titles checked.
@@ -47,7 +48,7 @@ promises not to do. The docs in this repo assume DCO.
       coverage, CodeQL, OpenSSF Scorecard, dependency review, actionlint and
       zizmor. Every action is pinned to a commit SHA.
 - [x] Add required checks for the new CI jobs once they have run once.
-- [ ] Sign in to [Codecov](https://codecov.io) with GitHub, add the repo, and
+- [x] Sign in to [Codecov](https://codecov.io) with GitHub, add the repo, and
       save its upload token as the `CODECOV_TOKEN` Actions secret.
 - [ ] Register at the [OpenSSF Best Practices](https://www.bestpractices.dev)
       program, reach the "passing" level, and add its badge to the README.
@@ -68,20 +69,28 @@ promises not to do. The docs in this repo assume DCO.
       from ROADMAP.md.
 - [x] Decision records in `docs/adr/`.
 - [x] Topics and description on the repo page.
-- [ ] Social preview image.
+- [ ] Social preview image, and the docs site as the repo's homepage URL.
 
-## 4. Before going public
+## 4. Before announcing it
+
+The repo is already public. These come before telling people about it.
 
 - [ ] Phase 0 works end to end with a 5-minute quick start.
-- [ ] Remove placeholder text in README, CODE_OF_CONDUCT and SECURITY.
+- [x] Remove placeholder text in README, CODE_OF_CONDUCT and SECURITY.
+      CODE_OF_CONDUCT uses the maintainer's email until a `conduct@`
+      address exists.
 - [ ] Docs site live (mdBook or Docusaurus) with install, quick start,
       concepts and "build a connector".
-- [ ] 15 to 20 `good first issue` items, each with clear steps.
+- [ ] 15 to 20 `good first issue` items, each with clear steps
+      (8 so far: #24 to #31).
 - [ ] Roadmap issues opened for each phase (Phase 0: #19).
-- [ ] Check the git history for secrets before making the repo public.
+- [x] Check the git history for secrets. Secret scanning covers the whole
+      history and has no alerts.
 
 ## 5. Community
 
+- [x] Welcome post in Discussions (#32). Pin it so it stays at the top.
+- [ ] A second maintainer, so the project doesn't depend on one person.
 - [ ] Community chat (Discord or Slack) with channels: `#general`, `#help`,
       `#contributors`, `#connectors`, `#announcements`.
 - [ ] Monthly community call, recorded and posted.
