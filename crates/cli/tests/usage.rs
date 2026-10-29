@@ -15,11 +15,10 @@ fn infoctl(args: &[&str]) -> std::process::Output {
 fn prints_usage_without_a_command() {
     let out = infoctl(&[]);
     assert!(out.status.success());
-    assert!(
-        String::from_utf8(out.stdout)
-            .unwrap()
-            .starts_with("infoctl:")
-    );
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    for text in ["infoctl <command>", "init", "run", "query"] {
+        assert!(stdout.contains(text), "{stdout}");
+    }
 }
 
 #[test]
