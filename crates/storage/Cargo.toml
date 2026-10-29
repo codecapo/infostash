@@ -11,8 +11,12 @@ arrow-array.workspace = true
 arrow-schema.workspace = true
 futures = "0.3.34"
 iceberg.workspace = true
+iceberg-catalog-sql.workspace = true
 infostash-model.workspace = true
 parquet.workspace = true
+# The SQL catalog reaches databases through sqlx; this turns on its SQLite
+# driver so the catalog can live in one file next to the tables.
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite"] }
 uuid = { version = "1.29.0", features = ["v4"] }
 
 [dev-dependencies]

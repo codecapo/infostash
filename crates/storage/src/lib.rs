@@ -1,10 +1,10 @@
 //! Object storage (local disk, S3, GCS, ADLS, MinIO) and Iceberg table
 //! access. Data always lives in the customer's bucket in open formats.
 //!
-//! Phase 0 runs against a local directory. The catalog is in memory, so a
-//! [`Warehouse`] forgets its tables when dropped, but every table's data and
-//! metadata are real Iceberg files on disk: [`read_metadata_file`] reads a
-//! table back from its metadata file alone.
+//! Phase 0 runs against a local directory. The catalog is a SQLite file in
+//! that directory, so a [`Warehouse`] opened again later finds the same
+//! tables. Every table's data and metadata are real Iceberg files on disk:
+//! [`read_metadata_file`] reads a table back from its metadata file alone.
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -15,7 +15,6 @@ use arrow_schema::Schema as ArrowSchema;
 use futures::{StreamExt, TryStreamExt};
 use iceberg::arrow::{arrow_schema_to_schema_auto_assign_ids, schema_to_arrow_schema};
 use iceberg::io::{FileIO, LocalFsStorageFactory};
-use iceberg::memory::{MEMORY_CATALOG_WAREHOUSE, MemoryCatalog, MemoryCatalogBuilder};
 use iceberg::spec::{DataFileFormat, ManifestStatus};
 use iceberg::table::{StaticTable, Table};
 use iceberg::transaction::{ApplyTransactionAction, Transaction};
@@ -27,6 +26,9 @@ use iceberg::writer::file_writer::location_generator::{
 use iceberg::writer::file_writer::rolling_writer::RollingFileWriterBuilder;
 use iceberg::writer::{IcebergWriter, IcebergWriterBuilder};
 use iceberg::{Catalog, CatalogBuilder, NamespaceIdent, TableCreation, TableIdent};
+use iceberg_catalog_sql::{
+    SQL_CATALOG_PROP_URI, SQL_CATALOG_PROP_WAREHOUSE, SqlCatalog, SqlCatalogBuilder,
+};
 use infostash_model::{Error, Result, SnapshotId, TableRef};
 use parquet::file::properties::WriterProperties;
 
@@ -39,25 +41,34 @@ pub struct Commit {
     pub rows: u64,
 }
 
+/// File in the warehouse root that holds the catalog.
+pub const CATALOG_FILE: &str = "catalog.db";
+
 /// A set of Iceberg tables under one storage root.
 pub struct Warehouse {
-    catalog: MemoryCatalog,
+    catalog: SqlCatalog,
 }
 
 impl Warehouse {
-    /// Open a warehouse rooted at a local directory.
+    /// Open a warehouse rooted at a local directory, creating its catalog
+    /// on first use. Tables created by an earlier process are still there.
     pub async fn open_local(root: &Path) -> Result<Self> {
         let root = root
             .canonicalize()
             .map_err(|e| Error::Storage(format!("{}: {e}", root.display())))?;
-        let catalog = MemoryCatalogBuilder::default()
+        // mode=rwc creates the database file if it doesn't exist yet.
+        let uri = format!("sqlite:{}?mode=rwc", root.join(CATALOG_FILE).display());
+        let catalog = SqlCatalogBuilder::default()
             .with_storage_factory(Arc::new(LocalFsStorageFactory))
             .load(
                 "infostash",
-                HashMap::from([(
-                    MEMORY_CATALOG_WAREHOUSE.to_string(),
-                    format!("file://{}", root.display()),
-                )]),
+                HashMap::from([
+                    (SQL_CATALOG_PROP_URI.to_string(), uri),
+                    (
+                        SQL_CATALOG_PROP_WAREHOUSE.to_string(),
+                        format!("file://{}", root.display()),
+                    ),
+                ]),
             )
             .await
             .map_err(storage)?;

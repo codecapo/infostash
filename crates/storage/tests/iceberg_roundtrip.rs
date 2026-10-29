@@ -1,5 +1,6 @@
 //! Week 1 proof: write an Iceberg table on local disk, commit, read it back,
-//! read only the rows added since a snapshot, and reopen it with no catalog.
+//! read only the rows added since a snapshot, reopen it with no catalog, and
+//! reopen the warehouse in a later run.
 
 // Helpers outside #[test] fns unwrap too; a failure there is a test failure.
 #![allow(clippy::unwrap_used)]
@@ -9,7 +10,7 @@ use std::sync::Arc;
 use arrow_array::{Int64Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
 use infostash_model::{Layer, TableRef};
-use infostash_storage::{Warehouse, read_metadata_file};
+use infostash_storage::{CATALOG_FILE, Warehouse, read_metadata_file};
 
 fn schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
@@ -122,4 +123,37 @@ async fn missing_tables_and_directories_are_errors() {
     let ghost = TableRef::new(Layer::Ready, "ghost");
     assert!(wh.read_all(&ghost).await.is_err());
     assert!(wh.append(&ghost, &[]).await.is_err());
+}
+
+#[tokio::test]
+async fn tables_survive_reopening_the_warehouse() {
+    let dir = tempfile::tempdir().unwrap();
+    let orders = TableRef::new(Layer::Raw, "orders");
+
+    // First run: create the table and commit.
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    wh.create_table(&orders, &schema()).await.unwrap();
+    let first = wh
+        .append(&orders, &[batch(&[1, 2], &["a", "b"])])
+        .await
+        .unwrap();
+    drop(wh);
+    assert!(dir.path().join(CATALOG_FILE).exists());
+
+    // Second run: the table is still there and takes another commit.
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    assert_eq!(ids(&wh.read_all(&orders).await.unwrap()), [1, 2]);
+    let second = wh.append(&orders, &[batch(&[3], &["c"])]).await.unwrap();
+    drop(wh);
+
+    // Third run sees both commits in the snapshot log.
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    assert_eq!(
+        wh.snapshots(&orders).await.unwrap(),
+        [first.snapshot, second.snapshot]
+    );
+    assert_eq!(ids(&wh.read_all(&orders).await.unwrap()), [1, 2, 3]);
+    let since = wh.read_since(&orders, Some(first.snapshot)).await.unwrap();
+    assert_eq!(ids(&since), [3]);
+    assert!(wh.create_table(&orders, &schema()).await.is_err());
 }
