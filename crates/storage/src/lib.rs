@@ -42,7 +42,18 @@ pub struct Commit {
 }
 
 /// File in the warehouse root that holds the catalog.
-pub const CATALOG_FILE: &str = "catalog.db";
+const CATALOG_FILE: &str = "catalog.db";
+
+/// Escape a file path for a SQLite URL. sqlx splits the URL at the first `?`
+/// and percent-decodes the path, so `%`, `?` and `#` in directory names must
+/// be encoded or the catalog opens the wrong file.
+fn sqlite_path(path: &Path) -> String {
+    path.display()
+        .to_string()
+        .replace('%', "%25")
+        .replace('?', "%3F")
+        .replace('#', "%23")
+}
 
 /// A set of Iceberg tables under one storage root.
 pub struct Warehouse {
@@ -57,7 +68,7 @@ impl Warehouse {
             .canonicalize()
             .map_err(|e| Error::Storage(format!("{}: {e}", root.display())))?;
         // mode=rwc creates the database file if it doesn't exist yet.
-        let uri = format!("sqlite:{}?mode=rwc", root.join(CATALOG_FILE).display());
+        let uri = format!("sqlite:{}?mode=rwc", sqlite_path(&root.join(CATALOG_FILE)));
         let catalog = SqlCatalogBuilder::default()
             .with_storage_factory(Arc::new(LocalFsStorageFactory))
             .load(

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use arrow_array::{Int64Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
 use infostash_model::{Layer, TableRef};
-use infostash_storage::{CATALOG_FILE, Warehouse, read_metadata_file};
+use infostash_storage::{Warehouse, read_metadata_file};
 
 fn schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
@@ -138,7 +138,7 @@ async fn tables_survive_reopening_the_warehouse() {
         .await
         .unwrap();
     drop(wh);
-    assert!(dir.path().join(CATALOG_FILE).exists());
+    assert!(dir.path().join("catalog.db").exists());
 
     // Second run: the table is still there and takes another commit.
     let wh = Warehouse::open_local(dir.path()).await.unwrap();
@@ -156,4 +156,24 @@ async fn tables_survive_reopening_the_warehouse() {
     let since = wh.read_since(&orders, Some(first.snapshot)).await.unwrap();
     assert_eq!(ids(&since), [3]);
     assert!(wh.create_table(&orders, &schema()).await.is_err());
+}
+
+#[tokio::test]
+async fn odd_directory_names_keep_their_own_catalog() {
+    let dir = tempfile::tempdir().unwrap();
+    let orders = TableRef::new(Layer::Raw, "orders");
+
+    // sqlx decodes %2F as "/", so an unescaped path would open "a/b".
+    for name in ["a%2Fb", "what?", "num#1", "100%"] {
+        let root = dir.path().join(name);
+        std::fs::create_dir(&root).unwrap();
+        let wh = Warehouse::open_local(&root).await.unwrap();
+        wh.create_table(&orders, &schema()).await.unwrap();
+        wh.append(&orders, &[batch(&[1], &["a"])]).await.unwrap();
+        drop(wh);
+
+        assert!(root.join("catalog.db").exists(), "{name}");
+        let wh = Warehouse::open_local(&root).await.unwrap();
+        assert_eq!(ids(&wh.read_all(&orders).await.unwrap()), [1], "{name}");
+    }
 }
