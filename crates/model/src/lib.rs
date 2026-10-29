@@ -187,5 +187,40 @@ mod tests {
     #[test]
     fn unknown_namespace_rejected() {
         assert!(TableRef::parse("platinum.orders").is_none());
+        assert!(TableRef::parse("orders").is_none());
+    }
+
+    #[test]
+    fn every_layer_round_trips() {
+        for layer in [Layer::Raw, Layer::Clean, Layer::Ready] {
+            assert_eq!(Layer::from_namespace(layer.namespace()), Some(layer));
+        }
+        assert_eq!(Layer::from_namespace("ready"), Some(Layer::Ready));
+    }
+
+    #[test]
+    fn full_build_has_no_start() {
+        assert!(SnapshotRange { from: None, to: 7 }.is_full());
+        assert!(
+            !SnapshotRange {
+                from: Some(3),
+                to: 7
+            }
+            .is_full()
+        );
+    }
+
+    #[test]
+    fn errors_name_their_kind() {
+        let cases = [
+            (Error::Parse("x".into()), "parse error: x"),
+            (Error::Plan("x".into()), "plan error: x"),
+            (Error::Storage("x".into()), "storage error: x"),
+            (Error::Execution("x".into()), "execution error: x"),
+            (Error::NotFound("x".into()), "not found: x"),
+        ];
+        for (error, text) in cases {
+            assert_eq!(error.to_string(), text);
+        }
     }
 }

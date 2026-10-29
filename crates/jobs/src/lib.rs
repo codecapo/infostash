@@ -46,17 +46,30 @@ mod tests {
         }
     }
 
-    #[test]
-    fn routes_by_pool() {
-        let runners: Vec<Box<dyn Runner>> =
-            vec![Box::new(Only(Pool::Ingest)), Box::new(Only(Pool::Bi))];
-        let job = Job {
+    fn job(pool: Pool) -> Job {
+        Job {
             id: JobId(1),
             project: ProjectVersion("abc".into()),
             target: TableRef::new(Layer::Ready, "daily_revenue"),
             inputs: vec![],
-            pool: Pool::Bi,
-        };
-        assert!(route(&runners, &job).unwrap().serves(Pool::Bi));
+            pool,
+        }
+    }
+
+    #[test]
+    fn routes_by_pool() {
+        let runners: Vec<Box<dyn Runner>> =
+            vec![Box::new(Only(Pool::Ingest)), Box::new(Only(Pool::Bi))];
+        let job = job(Pool::Bi);
+        let runner = route(&runners, &job).unwrap();
+        assert!(runner.serves(Pool::Bi));
+        assert_eq!(runner.name(), "only");
+        assert_eq!(runner.run(&job), JobOutcome::NoChange);
+    }
+
+    #[test]
+    fn no_runner_for_unserved_pool() {
+        let runners: Vec<Box<dyn Runner>> = vec![Box::new(Only(Pool::Ingest))];
+        assert!(route(&runners, &job(Pool::Agents)).is_none());
     }
 }

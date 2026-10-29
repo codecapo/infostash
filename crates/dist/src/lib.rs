@@ -180,5 +180,12 @@ mod tests {
         let agg = stage(2, &[1], 1, 0);
         let stats = run_in_process(&[&scan, &agg], RetryPolicy::default()).unwrap();
         assert_eq!(stats.rows_in, 50);
+        assert_eq!(scan.output(), &Exchange::Single);
+    }
+
+    #[test]
+    fn fails_after_last_attempt() {
+        let scan = stage(1, &[], 1, 3);
+        assert!(run_in_process(&[&scan], RetryPolicy::default()).is_err());
     }
 }
