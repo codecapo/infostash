@@ -12,10 +12,11 @@ use std::sync::Arc;
 
 use arrow_array::RecordBatch;
 use arrow_schema::Schema as ArrowSchema;
+use futures::stream::BoxStream;
 use futures::{StreamExt, TryStreamExt};
 use iceberg::arrow::{arrow_schema_to_schema_auto_assign_ids, schema_to_arrow_schema};
 use iceberg::io::{FileIO, LocalFsStorageFactory};
-use iceberg::spec::{DataFileFormat, ManifestStatus};
+use iceberg::spec::{DataFileFormat, ManifestStatus, Operation, TableMetadata};
 use iceberg::table::{StaticTable, Table};
 use iceberg::transaction::{ApplyTransactionAction, Transaction};
 use iceberg::writer::base_writer::data_file_writer::DataFileWriterBuilder;
@@ -29,7 +30,7 @@ use iceberg::{Catalog, CatalogBuilder, NamespaceIdent, TableCreation, TableIdent
 use iceberg_catalog_sql::{
     SQL_CATALOG_PROP_URI, SQL_CATALOG_PROP_WAREHOUSE, SqlCatalog, SqlCatalogBuilder,
 };
-use infostash_model::{Error, Result, SnapshotId, TableRef};
+use infostash_model::{Error, Result, SnapshotId, SnapshotRange, TableRef};
 use parquet::file::properties::WriterProperties;
 
 /// The result of one atomic append.
@@ -40,6 +41,9 @@ pub struct Commit {
     pub metadata_location: String,
     pub rows: u64,
 }
+
+/// Record batches read lazily from a table.
+pub type RecordBatchStream = BoxStream<'static, Result<RecordBatch>>;
 
 /// File in the warehouse root that holds the catalog.
 const CATALOG_FILE: &str = "catalog.db";
@@ -162,25 +166,63 @@ impl Warehouse {
 
     /// Every row in the table's current snapshot.
     pub async fn read_all(&self, table: &TableRef) -> Result<Vec<RecordBatch>> {
-        scan_current(&self.load(table).await?, None).await
+        scan_at(&self.load(table).await?, None, None)
+            .await?
+            .try_collect()
+            .await
+    }
+
+    /// Rows committed after `range.from` up to and including `range.to`, as
+    /// a stream. `from == None` reads the whole table as of `to`. This is
+    /// what incremental runs consume.
+    ///
+    /// Only appends can be read this way. It is an error if a snapshot in
+    /// the range replaced or deleted files (a merge or a compaction), because
+    /// its added files would hold rows that are not new. It is also an error
+    /// if `from` is not an ancestor of `to`, rather than reading everything.
+    pub async fn scan_range(
+        &self,
+        table: &TableRef,
+        range: SnapshotRange,
+    ) -> Result<RecordBatchStream> {
+        let loaded = self.load(table).await?;
+        let metadata = loaded.metadata();
+        let only = match range.from {
+            None => {
+                if metadata.snapshot_by_id(range.to).is_none() {
+                    return Err(Error::NotFound(format!("{table}: snapshot {}", range.to)));
+                }
+                None
+            }
+            Some(from) => {
+                let snapshots = appends_between(metadata, table, from, range.to)?;
+                if snapshots.is_empty() {
+                    return Ok(futures::stream::empty().boxed());
+                }
+                Some(files_added_by(&loaded, range.to, &snapshots).await?)
+            }
+        };
+        scan_at(&loaded, Some(range.to), only).await
     }
 
     /// Rows committed after snapshot `after`, up to the current snapshot.
-    /// `None` reads everything. This is what incremental runs consume.
-    ///
-    /// Append-only for now: files added and then removed in the range are
-    /// skipped, and row-level deletes are not applied.
+    /// `None` reads everything. See [`Warehouse::scan_range`] for the errors.
     pub async fn read_since(
         &self,
         table: &TableRef,
         after: Option<SnapshotId>,
     ) -> Result<Vec<RecordBatch>> {
-        let table = self.load(table).await?;
-        let Some(after) = after else {
-            return scan_current(&table, None).await;
+        let current = self.load(table).await?.metadata().current_snapshot_id();
+        let range = match (current, after) {
+            (Some(to), from) => SnapshotRange { from, to },
+            (None, None) => return Ok(Vec::new()),
+            (None, Some(from)) => {
+                return Err(Error::NotFound(format!(
+                    "{table}: snapshot {from} (the table has no snapshots)"
+                )));
+            }
         };
-        let added = files_added_since(&table, after).await?;
-        scan_current(&table, Some(&added)).await
+        self.scan_range(table, range).await?.try_collect().await
     }
 
     /// The table's snapshot ids, oldest first.
@@ -211,7 +253,7 @@ pub async fn read_metadata_file(table: &TableRef, location: &str) -> Result<Vec<
         .await
         .map_err(storage)?
         .into_table();
-    scan_current(&table, None).await
+    scan_at(&table, None, None).await?.try_collect().await
 }
 
 fn ident(table: &TableRef) -> TableIdent {
@@ -225,32 +267,59 @@ fn storage(e: impl std::fmt::Display) -> Error {
     Error::Storage(e.to_string())
 }
 
-/// Data files added by snapshots after `after` on the current branch.
-async fn files_added_since(table: &Table, after: SnapshotId) -> Result<HashSet<String>> {
-    let metadata = table.metadata();
-    let mut range = HashSet::new();
-    let mut cursor = metadata.current_snapshot().cloned();
-    while let Some(snap) = cursor {
-        if snap.snapshot_id() == after {
-            break;
+/// The snapshots after `from` up to and including `to`, walking back from
+/// `to`. Fails if one of them is not an append, or if the walk never reaches
+/// `from`.
+fn appends_between(
+    metadata: &TableMetadata,
+    table: &TableRef,
+    from: SnapshotId,
+    to: SnapshotId,
+) -> Result<HashSet<SnapshotId>> {
+    let mut snapshots = HashSet::new();
+    let mut cursor = Some(to);
+    while let Some(id) = cursor {
+        // Look the snapshot up first, so a made-up `from == to` is not found.
+        let snapshot = metadata
+            .snapshot_by_id(id)
+            .ok_or_else(|| Error::NotFound(format!("{table}: snapshot {id}")))?;
+        if id == from {
+            return Ok(snapshots);
         }
-        range.insert(snap.snapshot_id());
-        cursor = snap
-            .parent_snapshot_id()
-            .and_then(|p| metadata.snapshot_by_id(p).cloned());
+        let operation = &snapshot.summary().operation;
+        if *operation != Operation::Append {
+            return Err(Error::Storage(format!(
+                "{table}: snapshot {id} is a `{}`, not an append, so it can't be read \
+                 incrementally",
+                operation.as_str()
+            )));
+        }
+        snapshots.insert(id);
+        cursor = snapshot.parent_snapshot_id();
     }
+    Err(Error::NotFound(format!(
+        "{table}: snapshot {from} is not an ancestor of snapshot {to}"
+    )))
+}
 
-    let mut files = HashSet::new();
-    let Some(current) = metadata.current_snapshot() else {
-        return Ok(files);
-    };
+/// Paths of the data files that `snapshots` added, as listed by snapshot `to`.
+async fn files_added_by(
+    table: &Table,
+    to: SnapshotId,
+    snapshots: &HashSet<SnapshotId>,
+) -> Result<HashSet<String>> {
+    let metadata = table.metadata();
+    let to = metadata
+        .snapshot_by_id(to)
+        .ok_or_else(|| Error::NotFound(format!("snapshot {to}")))?;
     let list = table
-        .manifest_list_reader(current)
+        .manifest_list_reader(to)
         .load()
         .await
         .map_err(storage)?;
+    let mut files = HashSet::new();
     for manifest in list.entries() {
-        if !range.contains(&manifest.added_snapshot_id) {
+        if !snapshots.contains(&manifest.added_snapshot_id) {
             continue;
         }
         let manifest = table
@@ -259,8 +328,8 @@ async fn files_added_since(table: &Table, after: SnapshotId) -> Result<HashSet<S
             .await
             .map_err(storage)?;
         for entry in manifest.entries() {
-            let in_range = entry.snapshot_id().is_some_and(|s| range.contains(&s));
-            if in_range && entry.status() == ManifestStatus::Added {
+            let added_here = entry.snapshot_id().is_some_and(|s| snapshots.contains(&s));
+            if added_here && entry.status() == ManifestStatus::Added {
                 files.insert(entry.file_path().to_string());
             }
         }
@@ -268,26 +337,98 @@ async fn files_added_since(table: &Table, after: SnapshotId) -> Result<HashSet<S
     Ok(files)
 }
 
-/// Scan the current snapshot, optionally limited to some data files.
-async fn scan_current(table: &Table, only: Option<&HashSet<String>>) -> Result<Vec<RecordBatch>> {
-    let scan = table.scan().select_all().build().map_err(storage)?;
-    let tasks = scan.plan_files().await.map_err(storage)?;
+/// Scan the table as of snapshot `at` (the current one if `None`),
+/// optionally limited to some data files.
+async fn scan_at(
+    table: &Table,
+    at: Option<SnapshotId>,
+    only: Option<HashSet<String>>,
+) -> Result<RecordBatchStream> {
+    let mut scan = table.scan().select_all();
+    if let Some(at) = at {
+        scan = scan.snapshot_id(at);
+    }
+    let tasks = scan
+        .build()
+        .map_err(storage)?
+        .plan_files()
+        .await
+        .map_err(storage)?;
     let tasks = match only {
         None => tasks,
-        Some(only) => {
-            let only = only.clone();
-            tasks
-                .try_filter(move |t| std::future::ready(only.contains(t.data_file_path())))
-                .boxed()
-        }
+        Some(only) => tasks
+            .try_filter(move |t| std::future::ready(only.contains(t.data_file_path())))
+            .boxed(),
     };
-    table
+    Ok(table
         .reader_builder()
         .build()
         .read(tasks)
         .map_err(storage)?
         .stream()
-        .try_collect()
-        .await
         .map_err(storage)
+        .boxed())
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use arrow_array::Int64Array;
+    use arrow_schema::{DataType, Field};
+    use iceberg::spec::{MAIN_BRANCH, Snapshot, Summary};
+    use infostash_model::Layer;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn an_overwrite_in_the_range_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let wh = Warehouse::open_local(dir.path()).await.unwrap();
+        let orders = TableRef::new(Layer::Raw, "orders");
+        let schema = Arc::new(ArrowSchema::new(vec![Field::new(
+            "id",
+            DataType::Int64,
+            false,
+        )]));
+        wh.create_table(&orders, &schema).await.unwrap();
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![1]))]);
+        let append = wh.append(&orders, &[batch.unwrap()]).await.unwrap();
+
+        // Nothing public in the pinned iceberg-rust makes an overwrite, so
+        // add one to the metadata by hand. Its manifest list is never read.
+        let metadata = wh.load(&orders).await.unwrap().metadata().clone();
+        let overwrite = Snapshot::builder()
+            .with_snapshot_id(append.snapshot + 1)
+            .with_parent_snapshot_id(Some(append.snapshot))
+            .with_sequence_number(metadata.next_sequence_number())
+            .with_timestamp_ms(metadata.last_updated_ms() + 1)
+            .with_manifest_list("unused.avro")
+            .with_summary(Summary {
+                operation: Operation::Overwrite,
+                additional_properties: HashMap::new(),
+            })
+            .with_schema_id(metadata.current_schema_id())
+            .build();
+        let metadata = metadata
+            .into_builder(None)
+            .set_branch_snapshot(overwrite, MAIN_BRANCH)
+            .unwrap()
+            .build()
+            .unwrap()
+            .metadata;
+
+        let err = appends_between(&metadata, &orders, append.snapshot, append.snapshot + 1);
+        assert!(
+            matches!(&err, Err(Error::Storage(m)) if m.contains("`overwrite`, not an append")),
+            "{err:?}"
+        );
+        // An overwrite before the range doesn't matter.
+        let from_overwrite =
+            appends_between(&metadata, &orders, append.snapshot + 1, append.snapshot + 1);
+        assert!(from_overwrite.unwrap().is_empty());
+    }
 }
