@@ -41,15 +41,21 @@ between read and commit.
 - When a job writes several tables, they commit in a fixed order: side
   tables such as quarantine first, the main target last. The target's
   commit marks the job as done. If the target gets no rows, it still gets a
-  snapshot carrying the job id.
+  snapshot carrying the job id: a `fast_append` with no data files but with
+  snapshot properties succeeds and adds a snapshot with no rows (the spike
+  for this ADR checked it).
 - A rerun of a job with the same id commits only to tables that do not yet
   have that job id, so reruns are idempotent.
 - A connector's read position, and a model's last processed snapshot per
   input, are stored as a table property and mirrored in the snapshot
   summary. They are written in the same commit as the rows they describe.
 - Each commit checks that the table head is still the one the job read, and
-  fails if it moved. We wrap the catalog's compare-and-swap to do this,
-  because iceberg-rust would rebase the commit instead.
+  fails if it moved. iceberg-rust would rebase the commit instead, so we wrap
+  the catalog's compare-and-swap to do this.
+
+`Warehouse::append` predates this decision: it commits one table with a
+plain `fast_append`, with no job id and no head check. The commit path above
+is built in #13, and the quarantine ordering in #12.
 
 We revisit multi-table atomic commits when iceberg-rust calls
 `V1_COMMIT_TRANSACTION` against a REST catalog that supports it.
@@ -66,8 +72,8 @@ We revisit multi-table atomic commits when iceberg-rust calls
   that it produces the same split between target and quarantine.
 - Concurrent jobs on one table fail at commit instead of duplicating rows.
   The scheduler should still run one writer per table at a time.
-- A run with nothing new must skip the commit. An empty append is an error
-  in iceberg-rust.
+- A run that read nothing new skips its commits. A `fast_append` with no
+  data files and no properties is an error in iceberg-rust.
 - Failed attempts and crashes leave orphan files. Their names identify the
   job, task and attempt, so a cleanup step (#40) can find them.
 - The staging manifest format is a contract between tasks and the

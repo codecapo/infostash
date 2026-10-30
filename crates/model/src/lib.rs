@@ -1,9 +1,11 @@
 //! Core types shared by every crate.
 //!
 //! The unit of work in the platform is a [`Job`]: one project version, one
-//! target table and a range of upstream snapshots in, one Iceberg commit per
-//! table it writes plus metrics out. Everything else (scheduler, runners, distributed execution)
-//! is built around moving jobs and their outcomes.
+//! target table and a range of upstream snapshots in, an Iceberg commit and
+//! metrics out. ADR 0006 extends this to one commit per table a job writes;
+//! the types here still model a single target. Everything else (scheduler,
+//! runners, distributed execution) is built around moving jobs and their
+//! outcomes.
 
 use std::fmt;
 
