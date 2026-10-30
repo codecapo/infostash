@@ -2592,7 +2592,17 @@ version = "0.1.0"
 name = "infostash-connectors"
 version = "0.1.0"
 dependencies = [
+ "arrow-array",
+ "arrow-csv",
+ "arrow-schema",
+ "csv",
+ "glob",
  "infostash-model",
+ "infostash-storage",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -2631,6 +2641,7 @@ version = "0.1.0"
 dependencies = [
  "arrow-array",
  "arrow-schema",
+ "async-trait",
  "futures",
  "iceberg",
  "iceberg-catalog-sql",

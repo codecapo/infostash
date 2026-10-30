@@ -150,6 +150,9 @@ pub enum Error {
     Storage(String),
     Execution(String),
     NotFound(String),
+    /// A commit lost a race: the table changed after the writer read it.
+    /// Retrying from a fresh read is safe.
+    Conflict(String),
 }
 
 impl fmt::Display for Error {
@@ -160,6 +163,7 @@ impl fmt::Display for Error {
             Error::Storage(m) => write!(f, "storage error: {m}"),
             Error::Execution(m) => write!(f, "execution error: {m}"),
             Error::NotFound(m) => write!(f, "not found: {m}"),
+            Error::Conflict(m) => write!(f, "conflict: {m}"),
         }
     }
 }
@@ -220,6 +224,7 @@ mod tests {
             (Error::Storage("x".into()), "storage error: x"),
             (Error::Execution("x".into()), "execution error: x"),
             (Error::NotFound("x".into()), "not found: x"),
+            (Error::Conflict("x".into()), "conflict: x"),
         ];
         for (error, text) in cases {
             assert_eq!(error.to_string(), text);
