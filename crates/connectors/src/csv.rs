@@ -4,9 +4,13 @@
 //! models do the typing. Two columns are added to every row:
 //! [`SOURCE_FILE`] and [`LOADED_AT`].
 //!
-//! The position is the list of files already loaded, by path. A file is
-//! loaded once: changing a loaded file, or moving the files to another
-//! directory, does not load it again.
+//! The position is the list of files already loaded, by the path the glob
+//! yields. A path is loaded once, so editing a loaded file does not load it
+//! again. A different path is a new file: renaming or moving a file, or
+//! running a relative pattern from another directory, loads it again.
+//!
+//! Every file must have the table's columns. A file with other columns
+//! fails the run, and nothing from that run is committed.
 
 use std::collections::BTreeSet;
 use std::fs::File;
