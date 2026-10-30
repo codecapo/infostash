@@ -48,7 +48,7 @@ struct Query {
 }
 
 /// Run `infoctl` with `args` (without the program name) and return the
-/// exit code.
+/// exit code: 0 on success, 1 when a command fails, 2 for a usage error.
 pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
     let code = match args.first().map(String::as_str) {
         Some(c @ ("init" | "run")) => {
@@ -62,13 +62,23 @@ pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
                 USAGE_ERROR
             }
         },
-        _ => {
-            let _ = write!(out, "{USAGE}");
-            0
-        }
+        _ => match write!(out, "{USAGE}") {
+            Ok(()) => 0,
+            Err(e) => output_error(err, &e),
+        },
     };
-    let _ = out.flush();
-    code
+    // stdout is buffered, so a reader that closed the pipe can show up here.
+    match out.flush() {
+        Err(e) if code == 0 => output_error(err, &e),
+        _ => code,
+    }
+}
+
+/// Report a failed write to stdout. The output is incomplete, so the
+/// command fails.
+fn output_error(err: &mut dyn Write, e: &std::io::Error) -> i32 {
+    let _ = writeln!(err, "infoctl: output error: {e}");
+    1
 }
 
 fn parse_query(args: &[String]) -> Result<Query, String> {
@@ -208,5 +218,44 @@ mod tests {
             let e = parse_query(&args(bad)).unwrap_err();
             assert!(e.contains(msg), "{bad:?}: {e}");
         }
+    }
+
+    /// Stdout after the reader closed the pipe. With `buffered`, writes
+    /// still succeed and only the flush fails.
+    struct ClosedPipe {
+        buffered: bool,
+    }
+
+    impl Write for ClosedPipe {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.buffered {
+                Ok(buf.len())
+            } else {
+                Err(std::io::ErrorKind::BrokenPipe.into())
+            }
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+    }
+
+    #[test]
+    fn output_that_cannot_be_delivered_fails_the_command() {
+        for buffered in [true, false] {
+            let mut err = Vec::new();
+            let code = run(&[], &mut ClosedPipe { buffered }, &mut err);
+            assert_eq!(code, 1, "buffered={buffered}");
+            let err = String::from_utf8(err).unwrap();
+            assert!(err.contains("output error"), "{err}");
+        }
+        // A command that already failed keeps its own exit code.
+        let mut err = Vec::new();
+        let code = run(
+            &args(&["query"]),
+            &mut ClosedPipe { buffered: true },
+            &mut err,
+        );
+        assert_eq!(code, USAGE_ERROR);
     }
 }

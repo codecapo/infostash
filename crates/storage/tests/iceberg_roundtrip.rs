@@ -116,6 +116,31 @@ async fn tables_share_a_layer_and_names_are_unique() {
 }
 
 #[tokio::test]
+async fn tables_lists_every_layer_in_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    // No namespace exists yet.
+    assert!(wh.tables().await.unwrap().is_empty());
+
+    // Created out of order, with no Clean table at all.
+    let zeta = TableRef::new(Layer::Ready, "zeta");
+    let beta = TableRef::new(Layer::Raw, "beta");
+    let alpha = TableRef::new(Layer::Raw, "alpha");
+    for table in [&zeta, &beta, &alpha] {
+        wh.create_table(table, &schema()).await.unwrap();
+    }
+    assert_eq!(
+        wh.tables().await.unwrap(),
+        [alpha.clone(), beta.clone(), zeta.clone()]
+    );
+
+    // Clean appears once it has a table, between Raw and Ready.
+    let mid = TableRef::new(Layer::Clean, "mid");
+    wh.create_table(&mid, &schema()).await.unwrap();
+    assert_eq!(wh.tables().await.unwrap(), [alpha, beta, mid, zeta]);
+}
+
+#[tokio::test]
 async fn missing_tables_and_directories_are_errors() {
     let dir = tempfile::tempdir().unwrap();
     assert!(
