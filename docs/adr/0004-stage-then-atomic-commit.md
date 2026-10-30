@@ -1,6 +1,6 @@
 # 0004. Tasks stage files; only the job commits
 
-- **Status:** Accepted
+- **Status:** Superseded by [0006](0006-ordered-job-commits.md)
 - **Date:** 2026-10-27 (recorded 2026-10-29)
 
 ## Context

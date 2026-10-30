@@ -80,7 +80,7 @@ path = "data/orders/*.csv"     # relative to the project
 `connector` picks the connector; every other key belongs to it and is checked
 by it. Phase 0 ships only `csv`. Each run reads only files it has not read
 before; the position is saved in the same commit as the data
-([ADR 0004](../adr/0004-stage-then-atomic-commit.md)).
+([ADR 0006](../adr/0006-ordered-job-commits.md)).
 
 ### Models
 
