@@ -74,7 +74,8 @@ and tasks so the same plan runs in one process or across many machines. See
 
 ## Invariants that must never break
 
-- A task writes only to its own shuffle or staging location. Only the job
-  commit touches a table, and the commit is atomic.
+- A task writes only to its own shuffle or staging location. Only the job's
+  commits touch tables: one atomic commit per table, carrying the job id
+  (ADR 0006).
 - A connector's read position is committed in the same Iceberg commit as its data.
 - Agents run queries with the requesting user's permissions, never more.

@@ -32,7 +32,7 @@ reviews:
         - No unwrap, expect, panic or unsafe in library code.
         - Library APIs must exist in the versions pinned in Cargo.lock.
         - Every behaviour change needs a test that would fail if the code broke.
-        - Only the job commit may write to a table, and commits are atomic.
+        - Only the job's commits may write to tables: one atomic commit per table, carrying the job id.
         - A connector's read position is committed in the same Iceberg commit as its data.
     - path: ".github/**"
       instructions: Check workflow permissions are minimal, actions are pinned to commit SHAs, and untrusted input is passed through env, never inlined into run scripts.

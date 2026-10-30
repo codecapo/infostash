@@ -50,5 +50,6 @@ What gets easier, what gets harder, and what we must now do.
 | [0001](0001-iceberg-datafusion-arrow.md) | Build on Apache Iceberg, DataFusion and Arrow | Accepted |
 | [0002](0002-pin-iceberg-rust-from-git.md) | Pin unreleased iceberg-rust from git | Accepted |
 | [0003](0003-layers-as-namespaces.md) | Medallion layers are Iceberg namespaces | Accepted |
-| [0004](0004-stage-then-atomic-commit.md) | Tasks stage files; only the job commits | Accepted |
+| [0004](0004-stage-then-atomic-commit.md) | Tasks stage files; only the job commits | Superseded by 0006 |
 | [0005](0005-apache-2-with-dco.md) | Apache 2.0 with a DCO, not a CLA | Accepted |
+| [0006](0006-ordered-job-commits.md) | Jobs commit each table once, in order, under a job id | Accepted |
