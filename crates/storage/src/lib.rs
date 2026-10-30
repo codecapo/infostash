@@ -209,20 +209,7 @@ impl Warehouse {
             }
             tx = update.apply(tx).map_err(storage)?;
         }
-        let guard = HeadGuard {
-            inner: &self.catalog,
-            table: ident(table),
-            expected: expected_head,
-            tripped: AtomicBool::new(false),
-        };
-        let committed = match tx.commit(&guard).await {
-            Ok(committed) => committed,
-            Err(_) if guard.tripped.load(Ordering::SeqCst) => {
-                let found = self.state(table).await?.head;
-                return Err(moved(table, expected_head, found));
-            }
-            Err(e) => return Err(storage(e)),
-        };
+        let committed = commit_if_head(&self.catalog, table, expected_head, tx).await?;
         commit_result(table, &committed, rows)
     }
 
@@ -523,6 +510,34 @@ impl Catalog for HeadGuard<'_> {
     }
 }
 
+/// Commit `tx`, or fail with [`Error::Conflict`] if the head is not
+/// `expected` whenever iceberg loads the table, retries included.
+async fn commit_if_head(
+    catalog: &SqlCatalog,
+    table: &TableRef,
+    expected: Option<SnapshotId>,
+    tx: Transaction,
+) -> Result<Table> {
+    let guard = HeadGuard {
+        inner: catalog,
+        table: ident(table),
+        expected,
+        tripped: AtomicBool::new(false),
+    };
+    match tx.commit(&guard).await {
+        Ok(committed) => Ok(committed),
+        Err(_) if guard.tripped.load(Ordering::SeqCst) => {
+            let found = catalog.load_table(&ident(table)).await.map_err(storage)?;
+            Err(moved(
+                table,
+                expected,
+                found.metadata().current_snapshot_id(),
+            ))
+        }
+        Err(e) => Err(storage(e)),
+    }
+}
+
 /// The snapshots after `from` up to and including `to`, walking back from
 /// `to`. Fails if one of them is not an append, or if the walk never reaches
 /// `from`.
@@ -774,16 +789,55 @@ mod tests {
         let (files, _) = write_files(&stale, &orders, &[ids(&[2])]).await.unwrap();
         let tx = Transaction::new(&stale);
         let tx = tx.fast_append().add_data_files(files).apply(tx).unwrap();
+        let lost = commit_if_head(&wh.catalog, &orders, None, tx).await;
+        assert!(matches!(&lost, Err(Error::Conflict(_))), "{lost:?}");
+        // Without the guard, iceberg-rust would have rebased and committed.
+        assert_eq!(wh.snapshots(&orders).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn the_guard_passes_everything_else_through() {
+        let dir = tempfile::tempdir().unwrap();
+        let (wh, orders) = orders(dir.path()).await;
         let guard = HeadGuard {
             inner: &wh.catalog,
             table: ident(&orders),
             expected: None,
             tripped: AtomicBool::new(false),
         };
-        assert!(tx.commit(&guard).await.is_err());
-        assert!(guard.tripped.load(Ordering::SeqCst));
-        // Without the guard, iceberg-rust would have rebased and committed.
-        assert_eq!(wh.snapshots(&orders).await.unwrap().len(), 1);
+        assert!(format!("{guard:?}").contains("HeadGuard"));
+        let raw = ident(&orders).namespace().clone();
+        let other = NamespaceIdent::new("other".into());
+        assert!(guard.list_namespaces(None).await.unwrap().contains(&raw));
+        guard
+            .create_namespace(&other, HashMap::new())
+            .await
+            .unwrap();
+        assert!(guard.namespace_exists(&other).await.unwrap());
+        assert_eq!(guard.get_namespace(&other).await.unwrap().name(), &other);
+        guard
+            .update_namespace(&other, HashMap::from([("k".into(), "v".into())]))
+            .await
+            .unwrap();
+        guard.drop_namespace(&other).await.unwrap();
+
+        assert_eq!(guard.list_tables(&raw).await.unwrap(), [ident(&orders)]);
+        let schema = arrow_schema_to_schema_auto_assign_ids(&ids_schema()).unwrap();
+        let creation = TableCreation::builder()
+            .name("scratch".into())
+            .schema(schema)
+            .build();
+        let created = guard.create_table(&raw, creation).await.unwrap();
+        let scratch = created.identifier().clone();
+        let moved_to = TableIdent::new(raw.clone(), "moved".into());
+        guard.rename_table(&scratch, &moved_to).await.unwrap();
+        assert!(guard.table_exists(&moved_to).await.unwrap());
+        guard.drop_table(&moved_to).await.unwrap();
+        let location = created.metadata_location().unwrap().to_string();
+        guard.register_table(&scratch, location).await.unwrap();
+        guard.purge_table(&scratch).await.unwrap();
+        assert!(!guard.table_exists(&scratch).await.unwrap());
+        assert!(!guard.tripped.load(Ordering::SeqCst));
     }
 
     #[tokio::test]
@@ -807,6 +861,18 @@ mod tests {
             .await;
         assert!(matches!(&foreign, Err(Error::Storage(m)) if m.contains("total-records")));
         assert_eq!(wh.snapshots(&orders).await.unwrap(), [marker.snapshot]);
+
+        // Rows need no properties.
+        let plain = wh
+            .append_if_head(
+                &orders,
+                &[ids(&[1])],
+                Some(marker.snapshot),
+                &HashMap::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(plain.rows, 1);
     }
 
     #[tokio::test]

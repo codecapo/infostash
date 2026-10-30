@@ -7,7 +7,7 @@ use std::path::Path;
 
 use arrow_array::{Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, TimeUnit};
-use infostash_connectors::{CsvConnector, LOADED_AT, POSITION, SOURCE_FILE, prepare};
+use infostash_connectors::{Connector, CsvConnector, LOADED_AT, POSITION, SOURCE_FILE, prepare};
 use infostash_model::{Error, Layer, TableRef};
 use infostash_storage::Warehouse;
 
@@ -193,4 +193,14 @@ async fn two_runs_from_the_same_position_conflict() {
     assert!(matches!(lost, Err(Error::Conflict(_))), "{lost:?}");
     assert_eq!(s.ids().await, ["1", "2", "3"]);
     assert_eq!(s.snapshots().await, 2);
+}
+
+#[tokio::test]
+async fn files_with_only_a_header_create_nothing() {
+    let s = setup().await;
+    std::fs::write(s.files.join("a.csv"), "id,amount\n").unwrap();
+
+    assert_eq!(s.connector().kind(), "csv");
+    assert_eq!(s.run().await, None);
+    assert!(!s.wh.exists(&s.table).await.unwrap());
 }
