@@ -9,11 +9,14 @@ repository.workspace = true
 [dependencies]
 datafusion.workspace = true
 iceberg-datafusion.workspace = true
+infostash-model.workspace = true
+infostash-storage.workspace = true
 
-# Not used until week 3, but kept so the build proves datafusion and iceberg
-# agree on one arrow version.
-[package.metadata.cargo-machete]
-ignored = ["datafusion", "iceberg-datafusion"]
+[dev-dependencies]
+arrow-array.workspace = true
+arrow-schema.workspace = true
+tempfile = "3.27.0"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true

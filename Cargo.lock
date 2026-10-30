@@ -2583,6 +2583,18 @@ version = "0.1.0"
 [[package]]
 name = "infostash-cli"
 version = "0.1.0"
+dependencies = [
+ "arrow-array",
+ "arrow-csv",
+ "arrow-json",
+ "arrow-schema",
+ "datafusion",
+ "infostash-engine",
+ "infostash-model",
+ "infostash-storage",
+ "tempfile",
+ "tokio",
+]
 
 [[package]]
 name = "infostash-compiler"
@@ -2616,8 +2628,14 @@ dependencies = [
 name = "infostash-engine"
 version = "0.1.0"
 dependencies = [
+ "arrow-array",
+ "arrow-schema",
  "datafusion",
  "iceberg-datafusion",
+ "infostash-model",
+ "infostash-storage",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

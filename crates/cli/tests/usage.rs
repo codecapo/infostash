@@ -23,10 +23,21 @@ fn prints_usage_without_a_command() {
 
 #[test]
 fn unfinished_commands_exit_with_an_error() {
-    for cmd in ["init", "run", "query"] {
+    for cmd in ["init", "run"] {
         let out = infoctl(&[cmd]);
         assert_eq!(out.status.code(), Some(2));
         let stderr = String::from_utf8(out.stderr).unwrap();
         assert!(stderr.contains("not implemented yet"), "{stderr}");
     }
+}
+
+#[test]
+fn a_query_without_sql_is_a_usage_error() {
+    let out = infoctl(&["query"]);
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("no SQL given") && stderr.contains("USAGE"),
+        "{stderr}"
+    );
 }
