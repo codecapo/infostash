@@ -241,6 +241,9 @@ async fn scan_range_rejects_snapshots_outside_the_history() {
     assert!(not_found(
         wh.scan_range(&orders, range(None, 42)).await.map(drop)
     ));
+    assert!(not_found(
+        wh.scan_range(&orders, range(Some(42), 42)).await.map(drop)
+    ));
     // A range that runs backwards: `second` is not an ancestor of `first`.
     assert!(not_found(
         wh.scan_range(&orders, range(Some(second), first))

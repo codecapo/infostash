@@ -279,12 +279,13 @@ fn appends_between(
     let mut snapshots = HashSet::new();
     let mut cursor = Some(to);
     while let Some(id) = cursor {
-        if id == from {
-            return Ok(snapshots);
-        }
+        // Look the snapshot up first, so a made-up `from == to` is not found.
         let snapshot = metadata
             .snapshot_by_id(id)
             .ok_or_else(|| Error::NotFound(format!("{table}: snapshot {id}")))?;
+        if id == from {
+            return Ok(snapshots);
+        }
         let operation = &snapshot.summary().operation;
         if *operation != Operation::Append {
             return Err(Error::Storage(format!(
