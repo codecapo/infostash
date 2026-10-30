@@ -98,7 +98,10 @@ async fn a_table_with_no_snapshot_reads_as_empty() {
 async fn statements_that_write_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let wh = warehouse(&dir).await;
+    let copied = dir.path().join("copied.csv");
+    let copy = format!("copy (select 1) to '{}'", copied.display());
     for sql in [
+        copy.as_str(),
         "insert into ready.daily_revenue values ('2026-10-03', 5)",
         "create table ready.copy as select * from ready.daily_revenue",
         "drop table ready.daily_revenue",
@@ -108,6 +111,7 @@ async fn statements_that_write_are_rejected() {
         assert!(matches!(err, Error::Plan(_)), "{sql}: {err}");
         assert!(err.to_string().contains("not supported"), "{sql}: {err}");
     }
+    assert!(!copied.exists());
     let table = TableRef::new(Layer::Ready, "daily_revenue");
     assert_eq!(wh.read_all(&table).await.unwrap()[0].num_rows(), 2);
     assert_eq!(wh.tables().await.unwrap(), vec![table]);

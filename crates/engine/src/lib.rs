@@ -68,7 +68,10 @@ pub async fn query(warehouse: &Warehouse, sql: &str) -> Result<QueryResult> {
             } else {
                 format!("tables: {}", names.join(", "))
             };
-            Error::NotFound(format!("{m}; {known}"))
+            // DataFusion names it 'datafusion.ready.x'; show what the user typed.
+            let name = m.split('\'').nth(1).unwrap_or(m);
+            let name = name.strip_prefix("datafusion.").unwrap_or(name);
+            Error::NotFound(format!("table {name}; {known}"))
         }
         DataFusionError::SQL(..) => Error::Parse(e.to_string()),
         DataFusionError::Plan(..) => Error::Plan(e.to_string()),
