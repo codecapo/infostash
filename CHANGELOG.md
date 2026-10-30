@@ -14,3 +14,5 @@ include breaking changes; the release notes say so.
 - Iceberg tables on local disk: create, append in one atomic commit, read the
   current snapshot, read only rows added since a snapshot, and read a table
   from its metadata file with no catalog.
+- The table catalog is kept in `catalog.db` (SQLite) in the warehouse
+  directory, so tables and their snapshot history survive between runs.
