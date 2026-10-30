@@ -7,8 +7,10 @@ use std::path::Path;
 
 use arrow_array::{Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, TimeUnit};
-use infostash_connectors::{Connector, CsvConnector, LOADED_AT, POSITION, SOURCE_FILE, prepare};
-use infostash_model::{Error, Layer, TableRef};
+use infostash_connectors::{
+    Connector, CsvConnector, JOB_ID, LOADED_AT, POSITION, SOURCE_FILE, prepare,
+};
+use infostash_model::{Error, JobId, Layer, TableRef};
 use infostash_storage::Warehouse;
 
 struct Setup {
@@ -49,7 +51,9 @@ impl Setup {
     /// One full run: prepare and commit. Returns the rows committed.
     async fn run(&self) -> Option<u64> {
         let mut csv = self.connector();
-        let prepared = prepare(&self.wh, &self.table, &mut csv, 2).await.unwrap();
+        let prepared = prepare(JobId(7), &self.wh, &self.table, &mut csv, 2)
+            .await
+            .unwrap();
         prepared.commit(&self.wh).await.unwrap().map(|c| c.rows)
     }
 
@@ -148,7 +152,9 @@ async fn a_crash_before_the_commit_loads_each_row_once_on_rerun() {
 
     // Read b.csv, then crash before committing.
     let mut csv = s.connector();
-    let crashed = prepare(&s.wh, &s.table, &mut csv, 2).await.unwrap();
+    let crashed = prepare(JobId(7), &s.wh, &s.table, &mut csv, 2)
+        .await
+        .unwrap();
     assert_eq!(crashed.rows(), 3);
     drop(crashed);
     assert_eq!(s.snapshots().await, 1);
@@ -159,7 +165,7 @@ async fn a_crash_before_the_commit_loads_each_row_once_on_rerun() {
 }
 
 #[tokio::test]
-async fn the_position_is_a_table_property_naming_the_loaded_files() {
+async fn the_position_and_job_id_are_table_properties() {
     let s = setup().await;
     s.write("a.csv", &[1]);
     s.run().await;
@@ -175,6 +181,7 @@ async fn the_position_is_a_table_property_naming_the_loaded_files() {
         .collect();
     assert_eq!(files, ["a.csv"]);
     assert!(position.get("reading").is_none());
+    assert_eq!(state.properties.get(JOB_ID).unwrap(), "7");
 }
 
 #[tokio::test]
@@ -185,8 +192,12 @@ async fn two_runs_from_the_same_position_conflict() {
     s.write("b.csv", &[3]);
 
     let (mut one, mut two) = (s.connector(), s.connector());
-    let first = prepare(&s.wh, &s.table, &mut one, 2).await.unwrap();
-    let second = prepare(&s.wh, &s.table, &mut two, 2).await.unwrap();
+    let first = prepare(JobId(7), &s.wh, &s.table, &mut one, 2)
+        .await
+        .unwrap();
+    let second = prepare(JobId(7), &s.wh, &s.table, &mut two, 2)
+        .await
+        .unwrap();
     assert!(first.commit(&s.wh).await.unwrap().is_some());
 
     let lost = second.commit(&s.wh).await;
@@ -203,4 +214,22 @@ async fn files_with_only_a_header_create_nothing() {
     assert_eq!(s.connector().kind(), "csv");
     assert_eq!(s.run().await, None);
     assert!(!s.wh.exists(&s.table).await.unwrap());
+}
+
+#[tokio::test]
+async fn a_file_with_other_columns_fails_the_run_and_commits_nothing() {
+    let s = setup().await;
+    s.write("a.csv", &[1]);
+    s.run().await;
+    let before = s.wh.state(&s.table).await.unwrap();
+    std::fs::write(s.files.join("b.csv"), "id,price\n2,20\n").unwrap();
+
+    let mut csv = s.connector();
+    let prepared = prepare(JobId(8), &s.wh, &s.table, &mut csv, 2)
+        .await
+        .unwrap();
+    let err = prepared.commit(&s.wh).await;
+    assert!(matches!(err, Err(Error::Storage(_))), "{err:?}");
+    assert_eq!(s.wh.state(&s.table).await.unwrap(), before);
+    assert_eq!(s.ids().await, ["1"]);
 }

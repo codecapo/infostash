@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use arrow_array::RecordBatch;
-use infostash_model::{Result, SnapshotId, TableRef};
+use infostash_model::{JobId, Result, SnapshotId, TableRef};
 use infostash_storage::{Commit, Warehouse};
 
 mod csv;
@@ -19,6 +19,10 @@ pub use csv::{CsvConnector, LOADED_AT, SOURCE_FILE};
 /// Table property, mirrored in the snapshot summary, that holds the
 /// position the table's rows were read up to.
 pub const POSITION: &str = "infostash.position";
+
+/// Snapshot summary key, and table property, naming the job that made the
+/// commit (ADR 0006).
+pub const JOB_ID: &str = "infostash.job-id";
 
 /// Where a source left off: a file listing, Kafka offsets, a CDC log
 /// sequence number. Opaque to everything except the connector. It is stored
@@ -45,6 +49,7 @@ pub trait Connector: Send {
 /// Rows read from a source, not yet committed.
 #[derive(Debug)]
 pub struct Prepared {
+    job: JobId,
     table: TableRef,
     head: Option<SnapshotId>,
     from: Position,
@@ -56,6 +61,7 @@ pub struct Prepared {
 /// Nothing is written: a crash after this loses nothing, because the
 /// position only moves when [`Prepared::commit`] succeeds.
 pub async fn prepare(
+    job: JobId,
     warehouse: &Warehouse,
     table: &TableRef,
     connector: &mut dyn Connector,
@@ -77,6 +83,7 @@ pub async fn prepare(
         }
     }
     Ok(Prepared {
+        job,
         table: table.clone(),
         head,
         from,
@@ -107,9 +114,18 @@ impl Prepared {
                 // files with no rows; they'll be read again next time.
                 return Ok(None);
             };
-            warehouse.create_table(&self.table, &first.schema()).await?;
+            if let Err(e) = warehouse.create_table(&self.table, &first.schema()).await {
+                // Another run created it first. Carry on: the head check
+                // below reports a conflict if that run also committed.
+                if !warehouse.exists(&self.table).await? {
+                    return Err(e);
+                }
+            }
         }
-        let properties = HashMap::from([(POSITION.to_string(), self.next.0)]);
+        let properties = HashMap::from([
+            (POSITION.to_string(), self.next.0),
+            (JOB_ID.to_string(), self.job.0.to_string()),
+        ]);
         warehouse
             .append_if_head(&self.table, &self.batches, self.head, &properties)
             .await
