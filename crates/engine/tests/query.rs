@@ -126,10 +126,9 @@ async fn an_unknown_table_lists_the_tables_that_exist() {
         .err()
         .unwrap();
     assert!(matches!(err, Error::NotFound(_)), "{err}");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("missing") && msg.contains("gold.daily_revenue"),
-        "{msg}"
+    assert_eq!(
+        err.to_string(),
+        "not found: table ready.missing; tables: gold.daily_revenue"
     );
 }
 
