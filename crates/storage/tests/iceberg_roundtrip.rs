@@ -9,7 +9,8 @@ use std::sync::Arc;
 
 use arrow_array::{Int64Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
-use infostash_model::{Layer, TableRef};
+use futures::TryStreamExt;
+use infostash_model::{Error, Layer, SnapshotRange, TableRef};
 use infostash_storage::{Warehouse, read_metadata_file};
 
 fn schema() -> Arc<Schema> {
@@ -105,8 +106,12 @@ async fn tables_share_a_layer_and_names_are_unique() {
     wh.create_table(&customers, &schema()).await.unwrap();
     assert!(wh.create_table(&orders, &schema()).await.is_err());
 
-    // An empty table has nothing to read, from any snapshot.
-    assert!(wh.read_since(&customers, Some(1)).await.unwrap().is_empty());
+    // An empty table has nothing to read, and no snapshot to read after.
+    assert!(wh.read_since(&customers, None).await.unwrap().is_empty());
+    assert!(matches!(
+        wh.read_since(&customers, Some(1)).await,
+        Err(Error::NotFound(_))
+    ));
     assert!(wh.snapshots(&customers).await.unwrap().is_empty());
 }
 
@@ -176,4 +181,70 @@ async fn odd_directory_names_keep_their_own_catalog() {
         let wh = Warehouse::open_local(&root).await.unwrap();
         assert_eq!(ids(&wh.read_all(&orders).await.unwrap()), [1], "{name}");
     }
+}
+
+async fn scan(wh: &Warehouse, table: &TableRef, from: Option<i64>, to: i64) -> Vec<i64> {
+    let stream = wh
+        .scan_range(table, SnapshotRange { from, to })
+        .await
+        .unwrap();
+    ids(&stream.try_collect::<Vec<_>>().await.unwrap())
+}
+
+#[tokio::test]
+async fn scan_range_reads_only_the_snapshots_in_the_range() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    let orders = TableRef::new(Layer::Raw, "orders");
+    wh.create_table(&orders, &schema()).await.unwrap();
+    let first = wh
+        .append(&orders, &[batch(&[1, 2], &["a", "b"])])
+        .await
+        .unwrap();
+    let second = wh.append(&orders, &[batch(&[3], &["c"])]).await.unwrap();
+    let third = wh
+        .append(&orders, &[batch(&[4, 5], &["d", "e"])])
+        .await
+        .unwrap();
+    let (first, second, third) = (first.snapshot, second.snapshot, third.snapshot);
+
+    // The last two appends, and nothing from the first.
+    assert_eq!(scan(&wh, &orders, Some(first), third).await, [3, 4, 5]);
+    // `to` is pinned: rows committed after it are not read.
+    assert_eq!(scan(&wh, &orders, Some(first), second).await, [3]);
+    // A full read as of a snapshot.
+    assert_eq!(scan(&wh, &orders, None, second).await, [1, 2, 3]);
+    assert_eq!(scan(&wh, &orders, None, third).await, [1, 2, 3, 4, 5]);
+    // An empty range.
+    assert!(scan(&wh, &orders, Some(third), third).await.is_empty());
+}
+
+#[tokio::test]
+async fn scan_range_rejects_snapshots_outside_the_history() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = Warehouse::open_local(dir.path()).await.unwrap();
+    let orders = TableRef::new(Layer::Raw, "orders");
+    wh.create_table(&orders, &schema()).await.unwrap();
+    let first = wh.append(&orders, &[batch(&[1], &["a"])]).await.unwrap();
+    let second = wh.append(&orders, &[batch(&[2], &["b"])]).await.unwrap();
+    let (first, second) = (first.snapshot, second.snapshot);
+
+    let not_found = |r: infostash_model::Result<()>| matches!(r, Err(Error::NotFound(_)));
+    // A made-up snapshot must not fall back to reading every row (#30).
+    assert!(not_found(wh.read_since(&orders, Some(42)).await.map(drop)));
+    let range = |from, to| SnapshotRange { from, to };
+    assert!(not_found(
+        wh.scan_range(&orders, range(Some(42), second))
+            .await
+            .map(drop)
+    ));
+    assert!(not_found(
+        wh.scan_range(&orders, range(None, 42)).await.map(drop)
+    ));
+    // A range that runs backwards: `second` is not an ancestor of `first`.
+    assert!(not_found(
+        wh.scan_range(&orders, range(Some(second), first))
+            .await
+            .map(drop)
+    ));
 }
