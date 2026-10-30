@@ -35,7 +35,7 @@ use iceberg::{
 use iceberg_catalog_sql::{
     SQL_CATALOG_PROP_URI, SQL_CATALOG_PROP_WAREHOUSE, SqlCatalog, SqlCatalogBuilder,
 };
-use infostash_model::{Error, Result, SnapshotId, SnapshotRange, TableRef};
+use infostash_model::{Error, Layer, Result, SnapshotId, SnapshotRange, TableRef};
 use parquet::file::properties::WriterProperties;
 
 /// The result of one atomic append.
@@ -286,7 +286,25 @@ impl Warehouse {
         Ok(snaps.into_iter().map(|(_, id)| id).collect())
     }
 
-    async fn load(&self, table: &TableRef) -> Result<Table> {
+    /// Every table in the Raw, Clean and Ready namespaces, sorted.
+    pub async fn tables(&self) -> Result<Vec<TableRef>> {
+        let mut tables = Vec::new();
+        for layer in Layer::ALL {
+            let ns = NamespaceIdent::new(layer.namespace().to_string());
+            if !self.catalog.namespace_exists(&ns).await.map_err(storage)? {
+                continue;
+            }
+            for t in self.catalog.list_tables(&ns).await.map_err(storage)? {
+                tables.push(TableRef::new(layer, t.name()));
+            }
+        }
+        tables.sort();
+        Ok(tables)
+    }
+
+    /// Load a table at its current snapshot, for engines that read it
+    /// directly.
+    pub async fn load(&self, table: &TableRef) -> Result<Table> {
         self.catalog
             .load_table(&ident(table))
             .await

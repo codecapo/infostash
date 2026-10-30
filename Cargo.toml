@@ -24,6 +24,7 @@ infostash-agent = { path = "crates/agent", version = "0.1.0" }
 # Arrow and parquet must match iceberg's.
 arrow-array = "59.2"
 arrow-csv = "59.2"
+arrow-json = "59.2"
 arrow-schema = "59.2"
 datafusion = "55.2.0"
 iceberg = { git = "https://github.com/apache/iceberg-rust", rev = "5b82ab99aeaf50bf4f5b3b776ac9cd6380a5f3e3" }

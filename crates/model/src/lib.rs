@@ -21,12 +21,24 @@ pub enum Layer {
 }
 
 impl Layer {
+    /// Every layer, in pipeline order.
+    pub const ALL: [Layer; 3] = [Layer::Raw, Layer::Clean, Layer::Ready];
+
     /// Namespace used in SQL and in the catalog (`bronze.orders`).
     pub fn namespace(self) -> &'static str {
         match self {
             Layer::Raw => "bronze",
             Layer::Clean => "silver",
             Layer::Ready => "gold",
+        }
+    }
+
+    /// The analyst-facing name, also accepted in SQL (`ready.orders`).
+    pub fn alias(self) -> &'static str {
+        match self {
+            Layer::Raw => "raw",
+            Layer::Clean => "clean",
+            Layer::Ready => "ready",
         }
     }
 
@@ -198,10 +210,10 @@ mod tests {
 
     #[test]
     fn every_layer_round_trips() {
-        for layer in [Layer::Raw, Layer::Clean, Layer::Ready] {
+        for layer in Layer::ALL {
             assert_eq!(Layer::from_namespace(layer.namespace()), Some(layer));
+            assert_eq!(Layer::from_namespace(layer.alias()), Some(layer));
         }
-        assert_eq!(Layer::from_namespace("ready"), Some(Layer::Ready));
     }
 
     #[test]
