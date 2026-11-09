@@ -16,3 +16,7 @@ include breaking changes; the release notes say so.
   from its metadata file with no catalog.
 - The table catalog is kept in `catalog.db` (SQLite) in the warehouse
   directory, so tables and their snapshot history survive between runs.
+- `infoctl query` runs one read-only SQL statement against the warehouse and
+  prints the result as a table, CSV or line-delimited JSON. Tables are named
+  `<layer>.<table>`, by namespace or alias; statements that write are rejected,
+  and a directory without a catalog is refused rather than initialised.
