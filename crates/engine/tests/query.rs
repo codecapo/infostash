@@ -117,6 +117,55 @@ async fn statements_that_write_are_rejected() {
     assert_eq!(wh.tables().await.unwrap(), vec![table]);
 }
 
+/// A small CSV next to the warehouse, as a query might try to read.
+fn csv_file(dir: &tempfile::TempDir) -> std::path::PathBuf {
+    let path = dir.path().join("in.csv");
+    std::fs::write(&path, "day,amount\n2026-10-03,5\n").unwrap();
+    path
+}
+
+#[tokio::test]
+async fn an_external_table_cannot_be_declared() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = warehouse(&dir).await;
+    let sql = format!(
+        "create external table t stored as csv location '{}'",
+        csv_file(&dir).display()
+    );
+    let err = query(&wh, &sql).await.err().unwrap();
+    assert!(matches!(err, Error::Plan(_)), "{err}");
+    let shown = err.to_string();
+    assert!(
+        shown.contains("not supported") && shown.contains("CreateExternalTable"),
+        "{shown}"
+    );
+}
+
+#[tokio::test]
+async fn explain_analyze_does_not_run_a_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = warehouse(&dir).await;
+    let err = query(
+        &wh,
+        "explain analyze insert into ready.daily_revenue values ('2026-10-03', 5)",
+    )
+    .await
+    .err()
+    .unwrap();
+    assert!(matches!(err, Error::Plan(_)), "{err}");
+    assert!(err.to_string().contains("not supported"), "{err}");
+    let table = TableRef::new(Layer::Ready, "daily_revenue");
+    assert_eq!(wh.read_all(&table).await.unwrap()[0].num_rows(), 2);
+}
+
+#[tokio::test]
+async fn a_file_path_is_not_a_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let wh = warehouse(&dir).await;
+    let sql = format!("select * from '{}'", csv_file(&dir).display());
+    assert!(query(&wh, &sql).await.is_err());
+}
+
 #[tokio::test]
 async fn an_unknown_table_lists_the_tables_that_exist() {
     let dir = tempfile::tempdir().unwrap();

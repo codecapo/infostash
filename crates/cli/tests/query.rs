@@ -138,3 +138,13 @@ fn a_missing_warehouse_is_an_error_and_creates_nothing() {
     assert!(stderr.contains("no warehouse at"), "{stderr}");
     assert!(!missing.exists());
 }
+
+#[test]
+fn a_directory_without_a_catalog_is_an_error_and_stays_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = infoctl(&dir, &["select 1"]);
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("no warehouse at"), "{stderr}");
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}

@@ -30,6 +30,11 @@ QUERY:
 /// Where `infoctl init` puts the warehouse (RFC 0001 draft).
 const DEFAULT_WAREHOUSE: &str = ".infostash/warehouse";
 
+/// The catalog file `Warehouse::open_local` keeps in the warehouse directory.
+/// It repeats the private constant in `crates/storage/src/lib.rs` rather than
+/// widening the storage API for one check.
+const CATALOG_FILE: &str = "catalog.db";
+
 /// Exit code for a command line infoctl can't parse.
 const USAGE_ERROR: i32 = 2;
 
@@ -123,9 +128,9 @@ fn run_query(q: &Query, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
 }
 
 fn execute(q: &Query) -> Result<QueryResult, String> {
-    // Opening a missing directory would create a catalog there, which a
-    // read-only command must not do.
-    if !q.warehouse.is_dir() {
+    // Opening a directory without a catalog (or a missing one) would create a
+    // catalog there, which a read-only command must not do.
+    if !q.warehouse.join(CATALOG_FILE).is_file() {
         return Err(format!(
             "no warehouse at {} (pass --warehouse)",
             q.warehouse.display()
