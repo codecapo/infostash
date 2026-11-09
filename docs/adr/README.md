@@ -53,3 +53,5 @@ What gets easier, what gets harder, and what we must now do.
 | [0004](0004-stage-then-atomic-commit.md) | Tasks stage files; only the job commits | Superseded by 0006 |
 | [0005](0005-apache-2-with-dco.md) | Apache 2.0 with a DCO, not a CLA | Accepted |
 | [0006](0006-ordered-job-commits.md) | Jobs commit each table once, in order, under a job id | Accepted |
+| [0007](0007-hand-built-replace-commit.md) | Build the replace commit ourselves on the SQL catalog | Accepted |
+| [0008](0008-incremental-readers-of-replaced-tables.md) | Incremental readers of a replaced table fall back to a full refresh | Accepted |
