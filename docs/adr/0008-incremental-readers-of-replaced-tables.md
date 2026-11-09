@@ -29,10 +29,12 @@ Before creating a job, the scheduler checks the operation of every
 snapshot in the range it would pin for each input. If any input holds a
 snapshot that is not an append, or the input's `from` snapshot has been
 expired, the scheduler pins every input of that model with `from = None`,
-so the model is rebuilt from all of its inputs in full, reports the
-fallback and its cause in the run output, and has the job replace its
-target instead of appending to it. This is a new job with newly pinned
-inputs; nothing is patched into an existing job.
+not only the one that was replaced: a model rebuilt from one input in full
+and another input's increment would lose the second input's earlier rows.
+The model is rebuilt from all of its inputs, the scheduler reports the
+fallback and its cause in the run output, and the job replaces its target
+instead of appending to it. This is a new job with newly pinned inputs;
+nothing is patched into an existing job.
 
 The refusal in `appends_between` stays as a guard. Reaching it ends the
 job as a failure that is not retried, with a message saying the plan-time
