@@ -87,16 +87,22 @@ checkpoint properties go in that same commit, placed as `append_if_head`
 places them.
 
 We commit by checking the table UUID and the `main` head with
-`TableRequirement::check` against freshly loaded metadata, then running a
-copy of the SQL catalog's own commit statement on a `sqlx` SQLite pool of
-our own, opened on the same `catalog.db`: one `UPDATE` of `iceberg_tables`
-that sets `metadata_location` and `previous_metadata_location` where the
-row still points at the metadata the replace was built on. Zero rows
-updated is `Error::Conflict` when a re-read shows the head moved, with no
-retry and no rebase; an unchanged row means the statement no longer fits
-the catalog and is a storage error. The swap is what makes the commit
-safe, also against a concurrent writer; the requirement check runs first
-to give the clearer error and to catch a changed UUID.
+`TableRequirement::check` against freshly loaded metadata, then running
+the SQL catalog's own commit statement, less its record type filter, on a
+`sqlx` SQLite pool of our own, opened on the same `catalog.db`: one
+`UPDATE` of `iceberg_tables` that sets `metadata_location` and
+`previous_metadata_location` where the row with the table's key still
+points at the metadata the replace was built on. The filter adds nothing
+here: the key is the table's primary key, so at most one row matches, and
+that row must still hold the metadata location we loaded through the
+catalog, which a view row never does. Without it the statement fits both
+layouts of `iceberg_tables` the catalog reads and appends to, with and
+without the `iceberg_type` column. Zero rows updated is `Error::Conflict`
+when a re-read shows the head moved, with no retry and no rebase; an
+unchanged row means the statement no longer fits the catalog and is a
+storage error. The swap is what makes the commit safe, also against a
+concurrent writer; the requirement check runs first to give the clearer
+error and to catch a changed UUID.
 
 We do not take the fork. The probed variant only opens a hook, costs a
 fork to host and carry across every pin bump, and saves only the catalog
@@ -114,15 +120,13 @@ README's description of Clean tables stand.
   deletion vectors `docs/architecture.md` names for updates are later work
   on the same commit.
 - This works on SQLite only, because `crates/storage` enables only the
-  SQLite driver of `sqlx` and the statement is copied from the SQL catalog.
-  We bypass the `Catalog` trait, depend on the catalog's private
-  `iceberg_tables` layout and `catalog_name` key, keep a connection pool
-  next to the catalog's, and carry a copy of its private
-  `record_type_filter` in the form a fresh `catalog.db` gets. A layout
-  change upstream makes the statement fail or match no row, and nothing is
-  corrupted; a new column the catalog keeps in step with the location would
-  be left stale, so every pin bump (ADR 0002) must compare the catalog's
-  statement with ours.
+  SQLite driver of `sqlx` and the statement is the SQL catalog's. We bypass
+  the `Catalog` trait, depend on the catalog's private `iceberg_tables`
+  layout and `catalog_name` key, and keep a connection pool next to the
+  catalog's. A layout change upstream makes the statement fail or match no
+  row, and nothing is corrupted; a new column the catalog keeps in step
+  with the location would be left stale, so every pin bump (ADR 0002) must
+  compare the catalog's commit statement with ours.
 - Phase 1's REST catalog ([ROADMAP](../../ROADMAP.md)) cannot run our
   statement. The commit must then move to an upstream overwrite action, or
   to `Catalog::update_table` once a `TableCommit` can be built outside
@@ -136,7 +140,10 @@ README's description of Clean tables stand.
   of them.
 - #88 must test each head guard on its own: the swap with the requirement
   check removed, and the UUID check with the table dropped and recreated
-  between prepare and commit.
+  between prepare and commit. It must also test a replace on a
+  `catalog.db` whose `iceberg_tables` has no `iceberg_type` column, the
+  older layout the catalog reads and appends to but cannot create tables
+  on: create the table on a fresh catalog, drop the column, then reopen.
 - Once #88 imports `sqlx`, the exemption that keeps it off the
   unused-dependency check in `crates/storage/Cargo.toml` goes.
 - Incremental readers of a replaced table need a rule of their own:
