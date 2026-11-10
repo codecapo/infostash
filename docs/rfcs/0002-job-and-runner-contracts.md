@@ -253,10 +253,10 @@ every table already carrying its id also returns `Committed`, with every
 record flagged `already_committed` and `JobMetrics::default()` for the
 metrics. Such a rerun only happens when the outcome of the run that
 committed was lost, and with it the metrics of those rows; Phase 0 does
-not recover them, and a queue that keeps outcomes (Phase 1) will. A rerun
-that commits to some tables and skips the rest reports the stats of the
-tasks it ran, which in Phase 0 is every task, since one stage produces
-every table. That closes the gap #81 describes, where a rerun after a lost
+not recover them; a queue that keeps outcomes, in a later phase, will. A
+rerun that commits to some tables and skips the rest reports the stats
+of the tasks it ran, which in Phase 0 is every task, since one stage
+produces every table. That closes the gap #81 describes, where a rerun after a lost
 result reported `NoChange` and could not be told from a job that had
 nothing to do.
 
@@ -665,8 +665,8 @@ one table once") is stated over the rows that rule shows. Removing
 abandoned side-table rows is maintenance work alongside #40. If the new
 preparation finds no input past its checkpoint, the outcome is `NoChange`.
 
-The record format is internal to the CLI until a queue replaces it in
-Phase 1. The run id is a random `u64` assigned by the control plane for
+The record format is internal to the CLI until a queue replaces it in a
+later phase. The run id is a random `u64` assigned by the control plane for
 every run, including the first. It appears in staged file names, in
 `TaskContext` and in logs, and in no snapshot property. The committed
 metadata still names the data files, so a committed file's path tells
