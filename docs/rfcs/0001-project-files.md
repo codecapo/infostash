@@ -157,9 +157,10 @@ columns, so `amount >= 0` tests the decimal the model produces, not the Raw
 text. A row for which any check is false or null is quarantined: a check is a
 promise about every row that reaches the target, and a null result is not a
 kept promise. A check over a column that may be empty says so:
-`discount is null or discount >= 0`. Checks run on every row the query
-produces, after its `where` and before any deduplication, so a quarantined
-row never displaces an accepted one.
+`discount is null or discount >= 0`. Written checks run on every row the
+query produces, after its `where` and before any deduplication, so a
+quarantined row never displaces an accepted one. Implicit cast checks run
+earlier, on every input row before the `where` (see below).
 
 A check may carry a name, which follows the rules for table names (lower case
 letters, digits and `_`, starting with a letter) and is unique within the
@@ -169,17 +170,20 @@ hold a `:`, so they cannot collide with a written name.
 
 - Every `try_cast` (or `safe_cast`) whose argument is a bare Raw column
   adds the check `<raw> is null or try_cast(<raw> as <type>) is not null`,
-  named `cast:<col>`, where `<col>` is the output column the cast produces,
-  so two casts of one Raw column get two names; a cast that is not by itself
-  an output column, inside a larger select expression or in the `where`,
-  takes the name of the Raw column instead. A `try_cast` over any other
-  expression, such as `try_cast(trim(amount) as decimal)`, adds no implicit
-  check; a written check covers it. The implicit check tells an empty cell,
-  which stays null, from a value the type cannot hold. It runs before the
-  written checks, which see the typed value, and a row that fails it is
-  reported under `cast:<col>` only: the written checks that read that column
-  are not reported for the row, because their input is missing rather than
-  wrong. Written checks over other columns still apply to it.
+  named `cast:<col>`, where `<col>` is the output column when the cast is by
+  itself an output column and the Raw column otherwise (a cast inside a
+  larger select expression or in the `where`). Two implicit checks that
+  would share a name are a compile error that asks for an alias. A
+  `try_cast` over any other expression, such as
+  `try_cast(trim(amount) as decimal)`, adds no implicit check; a written
+  check covers it. The implicit check tells an empty cell, which stays null,
+  from a value the type cannot hold. It runs on every input row before the
+  `where`, so a value the type cannot hold is quarantined rather than dropped
+  by a filter that compares the cast, and before the written checks, which
+  see the typed value. A row that fails it is reported under `cast:<col>`
+  only: the written checks that read that column are not reported for the
+  row, because their input is missing rather than wrong. Written checks over
+  other columns still apply to it.
 - In a model with `@unique_key`, each key column adds the check
   `<col> is not null`, named `key_not_null:<col>`, so that rows without a key
   never collapse into one.
