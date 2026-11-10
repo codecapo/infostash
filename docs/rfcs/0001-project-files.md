@@ -260,8 +260,15 @@ carries the job id and the checkpoints, so readers see the old rows or the
 new, never both ([ADR 0007](../adr/0007-hand-built-replace-commit.md)). The
 table keeps its identity and history across refreshes, and a query that
 returns no rows still replaces the table, leaving it empty. The quarantine
-table is replaced in the same way, in the same commit, so a rebuild never
-appends the same quarantined rows again.
+table is replaced in the same way, under the same job id, in a commit of its
+own before the target, since iceberg-rust has no multi-table commit. Between
+the two commits a reader that pairs quarantine rows with the target ignores
+the new rows, whose job id is not yet in the target's history, as ADR 0006
+asks of readers that need a consistent view, and the rows of the previous
+refresh stay reachable through the quarantine table's previous snapshot. The
+rerun rule that ADR 0009 (proposed in #103) adds completes the target commit
+before any new job for the model, so a rebuild never appends the same
+quarantined rows again.
 
 **Rebuilt without `@full_refresh`.** A model may also be rebuilt in full
 without declaring `@full_refresh`. An incremental read works only over
@@ -283,7 +290,11 @@ replaced snapshot.
 **Time.** Every function that reads the clock (`now()`, `current_date` and
 the rest) returns the job's start time. That time is stored with the job id
 and used again when the job is rerun, so a check such as
-`ordered_at <= now()` splits rows exactly as the first attempt did.
+`ordered_at <= now()` splits rows exactly as the first attempt did. A rebuild,
+whether declared with `@full_refresh` or forced, judges every row by its own
+start time, because the table keeps no record of the run that first read each
+row; a row a clock check quarantined earlier may then pass. This is the one
+way a rebuilt table can differ from the one built run by run.
 
 **Ordering.** Under `@unique_key` the latest row wins. Rows are ordered by the
 data sequence number of the input snapshot that added the row's data file (a
@@ -315,25 +326,26 @@ produced its rows. The hash covers the SQL as parsed and printed again by the
 parser, so that whitespace, comments and formatting leave it unchanged while
 any change to an expression changes it; the `@unique_key` directive and the
 `@check` directives, each with its name and expression, in file order, which
-define what the table holds; and the current schema id of
-each input, read with the table state the commit is checked against. It
-leaves out `@description`, which changes nothing in the table, and
-`@full_refresh`, which changes how the table is produced rather than what it
-holds, so a model can be rebuilt by declaring it. Before an incremental run
-reads anything, the stored hash is compared with the computed one; a table
-without a stored hash, or with a matching one, runs normally. On a mismatch
-the run is refused, with an error that names the model and says that its
-SQL, its checks or key, or an input's schema changed since its last run, and
-nothing is committed. A run of a model that declares `@full_refresh: true`
-does not compare the stored hash: it replaces the table and commits the new
-hash in the same commit. In Phase 0 the way forward after a mismatch is
-therefore to declare `@full_refresh: true`, once the directive is accepted
-(see Compatibility), and to keep it until the plan-time check of ADR 0008
-exists (see Rebuilt without `@full_refresh` above). Until then, every
-incremental model that reads its table must declare `@full_refresh: true`
-as well. Rebuilding automatically on a mismatch is a later change. A new
-column in a source file fails its load today; growing a Raw table's schema
-with its files is a later, opt-in feature.
+define what the table holds; and the current schema id of each input, read
+with the table state the commit is checked against. It leaves out
+`@description`, which changes nothing in the table, and `@full_refresh`, which
+changes how the table is produced rather than what it holds, so a model can be
+rebuilt by declaring it. Before an incremental run reads anything, the stored
+hash is compared with the computed one; a table with a matching hash, or with
+no stored hash and no rows, runs normally. On a mismatch the run is refused,
+with an error that names the model and says that its SQL, its checks or key,
+or an input's schema changed since its last run, and nothing is committed. A
+table with rows and no stored hash is refused the same way, with an error that
+says no version is recorded, because nothing says which SQL produced its rows.
+A run of a model that declares `@full_refresh: true` does not compare the
+stored hash: it replaces the table and commits the new hash in the same
+commit. In Phase 0 the way forward after a mismatch is therefore to declare
+`@full_refresh: true`, once the directive is accepted (see Compatibility), and
+to keep it until the plan-time check of ADR 0008 exists (see Rebuilt without
+`@full_refresh` above). Until then, every incremental model that reads its
+table must declare `@full_refresh: true` as well. Rebuilding automatically on
+a mismatch is a later change. A new column in a source file fails its load
+today; growing a Raw table's schema with its files is a later, opt-in feature.
 
 ### Dependencies
 
