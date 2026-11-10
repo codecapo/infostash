@@ -463,7 +463,7 @@ The runner checks the expected state of every output table before it
 runs any task, so a job that is already stale stages nothing.
 
 `commit_staged` only appends. Replacing rows for `@full_refresh` or
-merging on `@unique_key` (ADR 0007, proposed in #72) is a separate
+merging on `@unique_key` (ADR 0007) is a separate
 operation that #88 defines; it will take the same `StagedFiles`.
 
 `commit_staged` checks, before touching the catalog, in this order:
