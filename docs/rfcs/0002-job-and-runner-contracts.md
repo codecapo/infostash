@@ -229,10 +229,12 @@ impl CommitRecord {
 pub enum JobOutcome {
     /// One record per output table, in commit order: side tables first,
     /// the target last.
+    #[non_exhaustive]
     Committed { commits: Vec<CommitRecord>, metrics: JobMetrics },
     /// No input had a snapshot past its checkpoint. Decided by the
     /// preparer, before a job record exists; nothing was written.
     NoChange,
+    #[non_exhaustive]
     Failed { kind: ErrorKind, message: String, retry: Retry },
 }
 
@@ -247,18 +249,17 @@ The name `CommitRecord` is chosen over `TableCommit` so that it does not
 collide with iceberg-rust's `TableCommit`, which `crates/storage` imports.
 
 `NoChange` is narrow on purpose. ADR 0006 says an empty target still gets a
-snapshot, so a job whose inputs have new snapshots but whose model produces
-no rows returns `Committed` with a record per table. A rerun that finds
-every table already carrying its id also returns `Committed`, with every
-record flagged `already_committed` and `JobMetrics::default()` for the
-metrics. Such a rerun only happens when the outcome of the run that
-committed was lost, and with it the metrics of those rows; Phase 0 does
-not recover them; a queue that keeps outcomes, in a later phase, will. A
-rerun that commits to some tables and skips the rest reports the stats
-of the tasks it ran, which in Phase 0 is every task, since one stage
-produces every table. That closes the gap #81 describes, where a rerun
-after a lost result reported `NoChange` and could not be told from a job
-that had nothing to do.
+snapshot, so a job whose inputs have new snapshots but whose model produces no
+rows returns `Committed` with a record per table. A rerun that finds every
+table already carrying its id also returns `Committed`, with every record
+flagged `already_committed` and `JobMetrics::default()` for the metrics. Such
+a rerun only happens when the process stopped between the last commit and the
+rewrite of the job record, so the metrics of those rows are lost; Phase 0 does
+not recover them; a queue that keeps outcomes, in a later phase, will. A rerun
+that commits to some tables and skips the rest reports the stats of the tasks
+it ran, which in Phase 0 is every task, since one stage produces every table.
+That closes the gap #81 describes, where a rerun after a lost result reported
+`NoChange` and could not be told from a job that had nothing to do.
 
 `TaskStats` stays in `crates/dist` and gains the counts the runner needs:
 
@@ -478,11 +479,15 @@ operation that #88 defines; it will take the same `StagedFiles`.
    current ones; one that is not is `Conflict`, because the table changed
    after the job was prepared, which is exactly what `Conflict` means.
 
-Then it reads each `data_file` back with the schema and partition type
-those ids name, runs the head check through the wrapped catalog as
-`append_if_head` does today, and returns `Conflict` when the head moved.
-A caller that gets `Conflict` after its own commit may have landed, for
-example a rerun after a crash, repeats the check #81 defines
+Then it reads each `data_file` back with the schema and partition type those
+ids name, runs the head check through the wrapped catalog as `append_if_head`
+does today, widened so that the guard compares the head, the current schema id
+and the default partition spec id on the load that `update_table` itself
+makes. The SQL catalog then swaps the metadata location only if it is still
+the one that load returned, so a metadata-only change that lands after the
+check, which moves no snapshot, fails the swap and is mapped to `Conflict`
+like a moved head. A caller that gets `Conflict` after its own commit may have
+landed, for example a rerun after a crash, repeats the check #81 defines
 (`Warehouse::committed_by`) before giving up, and reports the table as
 `already_committed` when it finds its own id.
 
@@ -605,14 +610,16 @@ range in memory; a new preparation after a crash is new work with a new
 id even when it reads the same bytes, so the skip that #81 adds helps a
 caller that lost the result of a commit, not one that crashed before it.
 
-A model job commits to several tables, so a crash between commits leaves
-work that must be finished under the same id (ADR 0006). For that the
-control plane keeps a job record. In Phase 0 the record is a JSON file at
+A model job commits to several tables, so a crash between commits leaves work
+that must be finished under the same id (ADR 0006). For that the control plane
+keeps a job record. In Phase 0 the record is a JSON file at
 `.infostash/jobs/<job-id>.json` under the project directory, beside the
-default warehouse path RFC 0001 gives, and it stays there when the
-warehouse path is configured elsewhere, because it belongs to the project
-that runs the job. `infoctl run` writes it with `serde_json`. Its
-lifecycle:
+default warehouse path RFC 0001 gives, and it stays there when the warehouse
+path is configured elsewhere, because it belongs to the project that runs the
+job. `infoctl run` writes it with `serde_json`, each time to a temporary file
+in the same directory that is synced and renamed over the record, so a crash
+leaves the old record or the new one and never a truncated file. The first
+write completes before the first commit. Its lifecycle:
 
 - **Written** after preparation and before the first run, with the fields
   of `Job` and no outcome. A job that preparation decides is `NoChange`
@@ -620,15 +627,22 @@ lifecycle:
 - **Rewritten** after a run that ends in `Failed` and keeps its record,
   with the outcome added, so that the next `infoctl run` can say why it
   is rerunning.
-- **Deleted** after the last commit of a `Committed` outcome; after a
-  `Failed` run when `committed_by` finds the id on no output table,
-  because nothing is then referenced and the next preparation repeats the
-  work with a new id; and when a job is abandoned, see below.
+- **Rewritten** with the `Committed` outcome after the last commit, so that a
+  caller whose report was lost can still read the result. Such a record is not
+  rerun; #40 removes it with the staging manifests older than the minimum age.
+- **Deleted** after a `Failed` run when `committed_by` finds the id on no
+  output table, because nothing is then referenced and the next preparation
+  repeats the work with a new id; and when a job is abandoned, see below.
 
-A record that exists when `infoctl run` starts is a job that may have
-committed to some, none or all of its tables; `committed_by` tells which.
-`infoctl run` reruns every such record for its target before it prepares
-a new job, and refuses to prepare a new job while one remains.
+A record without a `Committed` outcome that exists when `infoctl run` starts
+is a job that may have committed to some, none or all of its tables;
+`committed_by` tells which. `infoctl run` reruns every such record for its
+target before it prepares a new job, and refuses to prepare a new job while
+one remains. It holds an exclusive lock on `.infostash/jobs/lock`, taken with
+the operating system's file lock, from before it reads any record until after
+its last record write, so in Phase 0 one process at a time recovers, runs and
+records jobs for a project. A second `infoctl run` on the same project fails
+at once with an error naming the lock file, before it reads any record.
 
 A rerun creates a new `RunId`, reads the current state of every output
 table, skips each table whose head already carries the job id (and, where
@@ -807,8 +821,10 @@ The in-process runner that #13 builds:
 
 1. loads the state of every output table, skips the tables that already
    carry the job id (see "What a `JobId` identifies"), and checks the
-   expected head, schema id and partition spec id of the rest; a change
-   is `Conflict` before any task runs;
+   expected head, schema id and partition spec id of the rest; a change is
+   `Conflict` before any task runs; when every table already carries the id it
+   returns `Committed`, with every record `already_committed` and default
+   metrics, without planning or running a task;
 2. plans the stages, runs them with `run_in_process`, and maps an error
    to `Failed` through `JobOutcome::failed`;
 3. commits side tables first and the target last, one `commit_staged` per
@@ -842,9 +858,12 @@ The code that implements this RFC proves at least:
 - A job with a target and a quarantine table returns `Committed` with two
   records, quarantine first, and each snapshot carries the job id.
 - A rerun of a finished job returns `Committed` with every record flagged
-  `already_committed`, zero metrics, and makes no snapshot.
+  `already_committed`, zero metrics, runs no task and makes no snapshot.
 - A rerun whose target schema id differs from the recorded one returns
   `Failed { kind: Conflict, retry: Job }` before any task runs.
+- A schema change injected after the id checks of `commit_staged` and before
+  its catalog update, which moves no snapshot, returns `Conflict` and makes
+  no snapshot.
 - `commit_staged` with a `StagedFiles` whose `schema_id` is no longer
   current returns `Conflict` and makes no snapshot; one whose `table` is
   another table returns `Storage { retryable: false }`.
@@ -930,7 +949,8 @@ only #40 reads.
   `Prepared::commit` passes `AttemptKey::single` to `append_if_head`
   (#82) and, under #81, returns `Result<Option<CommitRecord>>`.
 - `crates/cli`: `infoctl run` assigns job and run ids for model jobs and
-  connector loads alike, and keeps the job record; it gains `serde_json`.
+  connector loads alike, and keeps the job record; it gains `serde_json` and a
+  file-locking crate for the run lock.
 
 There are no released users of these crates, so no migration is needed
 beyond the call sites in this repository, which the implementing tickets
@@ -940,12 +960,12 @@ beyond the call sites in this repository, which the implementing tickets
 
 Answered here:
 
-1. Who recovers a job id after a crash with no queue: `infoctl run`, from
-   the job record under `.infostash/jobs/`. The table property alone is
-   not enough, because a crash between commits leaves the id on a side
-   table only, and nothing names the target it was for. A record that
-   exists is rerun or abandoned; a record that is gone is finished or
-   abandoned.
+1. Who recovers a job id after a crash with no queue: `infoctl run`, from the
+   job record under `.infostash/jobs/`. The table property alone is not
+   enough, because a crash between commits leaves the id on a side table only,
+   and nothing names the target it was for. A record without a `Committed`
+   outcome is rerun or abandoned; a record with one, or none at all, is
+   finished or abandoned.
 2. One `ExecutionStage` per model, or per model and input partition: per
    model in Phase 0, with one task, run by the in-process runner.
 3. Whether Phase 0 writes per-attempt staging manifests: yes, as
@@ -954,11 +974,11 @@ Answered here:
 4. Who guarantees that a rerun produces the same output: the compiler, by
    fixing everything the result depends on in the job. The runner
    guarantees only isolation between attempts and the skip rule.
-5. What records a job as done once snapshot summaries expire: in Phase 0,
-   the absence of its job record. Snapshot expiry does not exist in Phase 0,
-   and the retention rule that #75 decides must keep every snapshot that
-   a job with a record still present committed, so that `committed_by`
-   can find them.
+5. What records a job as done once snapshot summaries expire: in Phase 0, its
+   job record with a `Committed` outcome, or the absence of one. Snapshot
+   expiry does not exist in Phase 0, and the retention rule that #75 decides
+   must keep every snapshot that a job whose record is present without a
+   `Committed` outcome committed, so that `committed_by` can find them.
 6. Whether `run_task` may return `Conflict`: no. Only `commit_staged` and
    the runner's precheck do.
 7. Which principal jobs in each `Pool` run as: `Principal::Local` for
