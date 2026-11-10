@@ -18,7 +18,9 @@ a dependency, a storage layout, an invariant.
 
 ADRs are never edited after they are accepted, except for typos, links and
 the status line. To change a decision, write a new ADR and change the old
-one's status to **Superseded by NNNN**.
+one's status to **Superseded by NNNN**. To add to a decision that still
+stands, write a new ADR that names what it amends and change the old
+one's status to **Accepted, amended by NNNN**.
 
 ## Format
 
@@ -27,7 +29,8 @@ Copy this into `docs/adr/NNNN-short-name.md` with the next free number:
 ```markdown
 # NNNN. Title in the active voice
 
-- **Status:** Proposed | Accepted | Superseded by NNNN
+- **Status:** Proposed | Accepted | Accepted, amended by NNNN |
+  Superseded by NNNN
 - **Date:** YYYY-MM-DD
 
 ## Context
@@ -52,6 +55,7 @@ What gets easier, what gets harder, and what we must now do.
 | [0003](0003-layers-as-namespaces.md) | Medallion layers are Iceberg namespaces | Accepted |
 | [0004](0004-stage-then-atomic-commit.md) | Tasks stage files; only the job commits | Superseded by 0006 |
 | [0005](0005-apache-2-with-dco.md) | Apache 2.0 with a DCO, not a CLA | Accepted |
-| [0006](0006-ordered-job-commits.md) | Jobs commit each table once, in order, under a job id | Accepted |
+| [0006](0006-ordered-job-commits.md) | Jobs commit each table once, in order, under a job id | Accepted, amended by 0009 |
 | [0007](0007-hand-built-replace-commit.md) | Build the replace commit ourselves on the SQL catalog | Accepted |
 | [0008](0008-incremental-readers-of-replaced-tables.md) | Incremental readers of a replaced table fall back to a full refresh | Accepted |
+| [0009](0009-positions-reruns-and-expiry.md) | Table positions, same-id reruns and expiry at checkpoints | Accepted |
