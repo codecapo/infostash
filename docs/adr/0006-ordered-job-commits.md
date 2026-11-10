@@ -1,6 +1,6 @@
 # 0006. Jobs commit each table once, in order, under a job id
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by [0009](0009-positions-reruns-and-expiry.md)
 - **Date:** 2026-10-30
 - **Supersedes:** [0004](0004-stage-then-atomic-commit.md)
 
