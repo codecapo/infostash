@@ -18,7 +18,9 @@ use futures::stream::BoxStream;
 use futures::{StreamExt, TryStreamExt};
 use iceberg::arrow::{arrow_schema_to_schema_auto_assign_ids, schema_to_arrow_schema};
 use iceberg::io::{FileIO, LocalFsStorageFactory};
-use iceberg::spec::{DataFile, DataFileFormat, ManifestStatus, Operation, TableMetadata};
+use iceberg::spec::{
+    DataFile, DataFileFormat, ManifestStatus, Operation, TableMetadata, TableProperties,
+};
 use iceberg::table::{StaticTable, Table};
 use iceberg::transaction::{ApplyTransactionAction, Transaction};
 use iceberg::writer::base_writer::data_file_writer::DataFileWriterBuilder;
@@ -36,7 +38,6 @@ use iceberg_catalog_sql::{
     SQL_CATALOG_PROP_URI, SQL_CATALOG_PROP_WAREHOUSE, SqlCatalog, SqlCatalogBuilder,
 };
 use infostash_model::{Error, Result, SnapshotId, SnapshotRange, TableRef};
-use parquet::file::properties::WriterProperties;
 
 /// The result of one atomic append.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,9 +119,15 @@ impl Warehouse {
                 .await
                 .map_err(storage)?;
         }
+        // Iceberg's default, written out so every engine sees it.
+        let compression = HashMap::from([(
+            TableProperties::PROPERTY_PARQUET_COMPRESSION_CODEC.to_string(),
+            TableProperties::PROPERTY_PARQUET_COMPRESSION_CODEC_DEFAULT.to_string(),
+        )]);
         let creation = TableCreation::builder()
             .name(table.name.clone())
             .schema(arrow_schema_to_schema_auto_assign_ids(schema).map_err(storage)?)
+            .properties(compression)
             .build();
         self.catalog
             .create_table(&ns, creation)
@@ -338,7 +345,10 @@ async fn write_files(
     let arrow_schema = Arc::new(schema_to_arrow_schema(&schema).map_err(storage)?);
 
     let files = RollingFileWriterBuilder::new_with_default_file_size(
-        ParquetWriterBuilder::new(WriterProperties::default(), schema),
+        // Codec, row group and page sizes come from the table's
+        // `write.parquet.*` properties.
+        ParquetWriterBuilder::from_table_properties(&metadata.table_properties(), schema)
+            .map_err(storage)?,
         current.file_io().clone(),
         DefaultLocationGenerator::new(metadata).map_err(storage)?,
         // A fresh prefix per write: the generator only counts up from 0.
@@ -728,6 +738,59 @@ mod tests {
         let orders = TableRef::new(Layer::Raw, "orders");
         wh.create_table(&orders, &ids_schema()).await.unwrap();
         (wh, orders)
+    }
+
+    /// The codec of every column chunk in the Parquet files under `dir`.
+    fn codecs(dir: &Path) -> HashSet<String> {
+        use parquet::file::reader::{FileReader, SerializedFileReader};
+        let mut found = HashSet::new();
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                found.extend(codecs(&path));
+            } else if path.extension().is_some_and(|e| e == "parquet") {
+                let reader = SerializedFileReader::new(std::fs::File::open(&path).unwrap());
+                for group in reader.unwrap().metadata().row_groups() {
+                    for column in group.columns() {
+                        let codec = format!("{:?}", column.compression());
+                        found.insert(codec.split('(').next().unwrap().to_string());
+                    }
+                }
+            }
+        }
+        found
+    }
+
+    #[tokio::test]
+    async fn new_tables_write_zstd() {
+        let dir = tempfile::tempdir().unwrap();
+        let (wh, orders) = orders(dir.path()).await;
+        let codec = TableProperties::PROPERTY_PARQUET_COMPRESSION_CODEC;
+        let state = wh.state(&orders).await.unwrap();
+        assert_eq!(state.properties.get(codec).unwrap(), "zstd");
+
+        wh.append(&orders, &[ids(&[1, 2, 3])]).await.unwrap();
+        assert_eq!(codecs(dir.path()), HashSet::from(["ZSTD".to_string()]));
+    }
+
+    #[tokio::test]
+    async fn the_table_codec_is_honoured() {
+        let dir = tempfile::tempdir().unwrap();
+        let (wh, orders) = orders(dir.path()).await;
+        let table = wh.load(&orders).await.unwrap();
+        let tx = Transaction::new(&table);
+        let tx = tx
+            .update_table_properties()
+            .set(
+                TableProperties::PROPERTY_PARQUET_COMPRESSION_CODEC.to_string(),
+                "snappy".to_string(),
+            )
+            .apply(tx)
+            .unwrap();
+        tx.commit(&wh.catalog).await.unwrap();
+
+        wh.append(&orders, &[ids(&[1, 2, 3])]).await.unwrap();
+        assert_eq!(codecs(dir.path()), HashSet::from(["SNAPPY".to_string()]));
     }
 
     #[tokio::test]
