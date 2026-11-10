@@ -32,17 +32,16 @@ and not the ancestors a delta read walks back through, and with
 `gc.enabled = false` nothing can ever be expired.
 
 Two rules that the connector, runner and maintenance work need are also
-missing. ADR 0006 makes a rerun skip the tables that already carry its job
-id, but does not say that a job which failed after one of its commits is
-rerun at all, or before what. No ADR covers snapshot expiry, although any
-engine that expires under a table's own settings removes every snapshot
-older than five days except the head and those a branch or tag points at,
-including the one a consumer's checkpoint names, and `appends_between`
-then fails with the same `NotFound` as a snapshot that was never an
-ancestor. RFC 0002 (proposed in #102) gives each model job a record under
-`.infostash/jobs/` that lives until the job completes or is abandoned,
-classes each error as retried or not, and asks for one exception to the
-rerun rule and one addition to the retention rule; both are below.
+missing. ADR 0006 makes a rerun skip the tables that already carry its job id,
+but does not say that a job which failed after one of its commits is rerun at
+all, or before what. No ADR covers snapshot expiry, although any engine that
+expires under a table's own settings removes every snapshot older than five
+days except the head and those a branch or tag points at, including the one a
+consumer's checkpoint names, and `appends_between` then fails with the same
+`NotFound` as a snapshot that was never an ancestor. RFC 0002 (proposed in
+#102) gives each model job a record under `.infostash/jobs/` that says what it
+committed, classes each error as retried or not, and asks for one exception to
+the rerun rule and one addition to the retention rule; both are below.
 
 ## Decision
 
@@ -80,21 +79,20 @@ rerun rule and one addition to the retention rule; both are below.
   version it was prepared from is no longer the current one.
 - **Snapshot expiry never goes past the oldest consumer checkpoint.** The
   cutoff for a table is the timestamp of the oldest snapshot that any
-  consumer's checkpoint still names, read from the checkpoint table
-  properties consumers already store; there is no separate watermark
-  store. A table with no consumer is expired under its own settings. The
-  consumers of a table are the models that read it in the project, so a
-  reader outside the project gets no guarantee. The pinned iceberg-rust
-  keeps every snapshot whose timestamp is at or after the cutoff and every
-  later ancestor on the branch, as the last test of #91 confirms, so a
-  checkpoint snapshot and everything after it survive. Expiry also keeps
-  every snapshot committed by a model job whose record still exists, so
-  that a rerun can find its job id on each table. A connector job keeps
-  no record; its rerun runs before any new job for the table, so the head
-  it needs is never expired. The expiry properties that #91 writes at
-  `create_table` are a floor under any engine that expires on its own, not
-  the guarantee. The rule is decided now and implemented with the Phase 1
-  snapshot expiry.
+  consumer's checkpoint still names, read from the checkpoint table properties
+  consumers already store; there is no separate watermark store. A table with
+  no consumer is expired under its own settings. The consumers of a table are
+  the models that read it in the project, so a reader outside the project gets
+  no guarantee. The pinned iceberg-rust keeps every snapshot whose timestamp
+  is at or after the cutoff and every later ancestor on the branch, as the
+  last test of #91 confirms, so a checkpoint snapshot and everything after it
+  survive. Expiry also keeps every snapshot committed by a model job whose
+  record still exists without a `Committed` outcome, so that a rerun can find
+  its job id on each table. A connector job keeps no record; its rerun runs
+  before any new job for the table, so the head it needs is never expired. The
+  expiry properties that #91 writes at `create_table` are a floor under any
+  engine that expires on its own, not the guarantee. The rule is decided now
+  and implemented with the Phase 1 snapshot expiry.
 - **A reader whose `from` snapshot was expired gets its own error.** #89
   adds a variant of `infostash_model::Error` that names truncated history,
   distinct from the `NotFound` of a snapshot that was never an ancestor, and
