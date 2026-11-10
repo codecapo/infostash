@@ -256,9 +256,9 @@ committed was lost, and with it the metrics of those rows; Phase 0 does
 not recover them; a queue that keeps outcomes, in a later phase, will. A
 rerun that commits to some tables and skips the rest reports the stats
 of the tasks it ran, which in Phase 0 is every task, since one stage
-produces every table. That closes the gap #81 describes, where a rerun after a lost
-result reported `NoChange` and could not be told from a job that had
-nothing to do.
+produces every table. That closes the gap #81 describes, where a rerun
+after a lost result reported `NoChange` and could not be told from a job
+that had nothing to do.
 
 `TaskStats` stays in `crates/dist` and gains the counts the runner needs:
 
