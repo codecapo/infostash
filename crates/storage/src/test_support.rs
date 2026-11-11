@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use arrow_array::{Int64Array, RecordBatch};
 use arrow_schema::{DataType, Field, Schema as ArrowSchema};
+use futures::TryStreamExt;
 use iceberg::spec::ManifestStatus;
 use infostash_model::{Layer, SnapshotId, TableRef};
 
@@ -152,4 +153,31 @@ pub(crate) async fn manifests_of(
 /// The local path of a `file://` location.
 pub(crate) fn local_path(file: &str) -> &Path {
     Path::new(file.strip_prefix("file://").unwrap())
+}
+
+/// Paths of the data files in the table's current snapshot, sorted: what a
+/// replace that empties the table removes.
+pub(crate) async fn live_files(wh: &Warehouse, table: &TableRef) -> Vec<String> {
+    let loaded = wh.load(table).await.unwrap();
+    if loaded.metadata().current_snapshot().is_none() {
+        return Vec::new();
+    }
+    let tasks: Vec<_> = loaded
+        .scan()
+        .select_all()
+        .build()
+        .unwrap()
+        .plan_files()
+        .await
+        .unwrap()
+        .try_collect()
+        .await
+        .unwrap();
+    let mut files: Vec<String> = tasks
+        .into_iter()
+        .map(|t| t.data_file_path().to_string())
+        .collect();
+    files.sort();
+    files.dedup();
+    files
 }

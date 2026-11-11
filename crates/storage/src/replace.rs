@@ -13,7 +13,6 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use arrow_array::RecordBatch;
-use futures::TryStreamExt;
 use iceberg::spec::{
     DataContentType, DataFile, DataFileFormat, FormatVersion, MAIN_BRANCH, ManifestContentType,
     ManifestEntryRef, ManifestFile, ManifestListWriter, ManifestWriter, ManifestWriterBuilder,
@@ -94,33 +93,6 @@ impl Warehouse {
             .prepare_replace(table, expected_head, replacement, properties)
             .await?;
         self.commit_replace(prepared).await
-    }
-
-    /// Paths of the data files in the table's current snapshot, sorted:
-    /// what a replace that empties the table removes.
-    pub async fn live_files(&self, table: &TableRef) -> Result<Vec<String>> {
-        let loaded = self.load(table).await?;
-        if loaded.metadata().current_snapshot().is_none() {
-            return Ok(Vec::new());
-        }
-        let tasks: Vec<_> = loaded
-            .scan()
-            .select_all()
-            .build()
-            .map_err(storage)?
-            .plan_files()
-            .await
-            .map_err(storage)?
-            .try_collect()
-            .await
-            .map_err(storage)?;
-        let mut files: Vec<String> = tasks
-            .into_iter()
-            .map(|t| t.data_file_path().to_string())
-            .collect();
-        files.sort();
-        files.dedup();
-        Ok(files)
     }
 
     /// Write everything a replace needs except the catalog pointer.
@@ -557,8 +529,8 @@ mod tests {
     use super::{PreparedReplace, Replacement};
     use crate::swap::CatalogSwap;
     use crate::test_support::{
-        all_ids, entries_of, files_of, ids, ids_schema, job, local_path, manifests_of, orders,
-        position, referenced_files, two_appends,
+        all_ids, entries_of, files_of, ids, ids_schema, job, live_files, local_path, manifests_of,
+        orders, position, referenced_files, two_appends,
     };
     use crate::{Warehouse, ident, read_metadata_file, scan_at, write_files};
 
@@ -778,7 +750,7 @@ mod tests {
             .clone();
         assert_eq!(summary.additional_properties["total-records"], "5");
         assert_eq!(summary.additional_properties["total-data-files"], "3");
-        assert_eq!(wh.live_files(&orders).await.unwrap().len(), 3);
+        assert_eq!(live_files(&wh, &orders).await.len(), 3);
     }
 
     #[tokio::test]
@@ -1089,9 +1061,9 @@ mod tests {
     async fn a_full_refresh_with_no_rows_still_commits_an_empty_overwrite() {
         let dir = tempfile::tempdir().unwrap();
         let (wh, orders) = orders(dir.path()).await;
-        assert!(wh.live_files(&orders).await.unwrap().is_empty());
+        assert!(live_files(&wh, &orders).await.is_empty());
         let (_, second) = two_appends(&wh, &orders).await;
-        let live = wh.live_files(&orders).await.unwrap();
+        let live = live_files(&wh, &orders).await;
         assert_eq!(live.len(), 2);
 
         let empty = Replacement {
@@ -1105,7 +1077,7 @@ mod tests {
 
         assert_eq!(refreshed.rows, 0);
         assert!(all_ids(&wh.read_all(&orders).await.unwrap()).is_empty());
-        assert!(wh.live_files(&orders).await.unwrap().is_empty());
+        assert!(live_files(&wh, &orders).await.is_empty());
         let loaded = wh.load(&orders).await.unwrap();
         let summary = loaded.metadata().current_snapshot().unwrap().summary();
         assert_eq!(summary.operation, Operation::Overwrite);
