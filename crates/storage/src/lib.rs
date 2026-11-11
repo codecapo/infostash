@@ -39,7 +39,15 @@ use iceberg_catalog_sql::{
 };
 use infostash_model::{Error, Layer, Result, SnapshotId, SnapshotRange, TableRef};
 
-/// The result of one atomic append.
+mod replace;
+mod swap;
+#[cfg(test)]
+mod test_support;
+
+pub use replace::Replacement;
+use swap::CatalogSwap;
+
+/// The result of one atomic commit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Commit {
     pub snapshot: SnapshotId,
@@ -68,6 +76,9 @@ pub type RecordBatchStream = BoxStream<'static, Result<RecordBatch>>;
 /// File in the warehouse root that holds the catalog.
 const CATALOG_FILE: &str = "catalog.db";
 
+/// Name the warehouse registers under in its catalog.
+const CATALOG_NAME: &str = "infostash";
+
 /// Escape a file path for a SQLite URL. sqlx splits the URL at the first `?`
 /// and percent-decodes the path, so `%`, `?` and `#` in directory names must
 /// be encoded or the catalog opens the wrong file.
@@ -82,6 +93,8 @@ fn sqlite_path(path: &Path) -> String {
 /// A set of Iceberg tables under one storage root.
 pub struct Warehouse {
     catalog: SqlCatalog,
+    /// Commits replaces, which the catalog's own commit cannot express.
+    swap: CatalogSwap,
 }
 
 impl Warehouse {
@@ -96,9 +109,9 @@ impl Warehouse {
         let catalog = SqlCatalogBuilder::default()
             .with_storage_factory(Arc::new(LocalFsStorageFactory))
             .load(
-                "infostash",
+                CATALOG_NAME,
                 HashMap::from([
-                    (SQL_CATALOG_PROP_URI.to_string(), uri),
+                    (SQL_CATALOG_PROP_URI.to_string(), uri.clone()),
                     (
                         SQL_CATALOG_PROP_WAREHOUSE.to_string(),
                         format!("file://{}", root.display()),
@@ -107,7 +120,8 @@ impl Warehouse {
             )
             .await
             .map_err(storage)?;
-        Ok(Self { catalog })
+        let swap = CatalogSwap::connect(&uri, CATALOG_NAME).await?;
+        Ok(Self { catalog, swap })
     }
 
     /// Create an empty table with the given schema.
@@ -185,11 +199,7 @@ impl Warehouse {
         expected_head: Option<SnapshotId>,
         properties: &HashMap<String, String>,
     ) -> Result<Commit> {
-        if let Some(key) = properties.keys().find(|k| !k.starts_with(PROPERTY_PREFIX)) {
-            return Err(Error::Storage(format!(
-                "{table}: property `{key}` must start with `{PROPERTY_PREFIX}`"
-            )));
-        }
+        check_properties(table, properties)?;
         if properties.is_empty() && batches.iter().all(|b| b.num_rows() == 0) {
             return Err(Error::Storage(format!(
                 "{table}: nothing to commit (no rows and no properties)"
@@ -339,6 +349,16 @@ fn ident(table: &TableRef) -> TableIdent {
 
 fn storage(e: impl std::fmt::Display) -> Error {
     Error::Storage(e.to_string())
+}
+
+/// Refuse a property key Infostash does not own.
+fn check_properties(table: &TableRef, properties: &HashMap<String, String>) -> Result<()> {
+    match properties.keys().find(|k| !k.starts_with(PROPERTY_PREFIX)) {
+        Some(key) => Err(Error::Storage(format!(
+            "{table}: property `{key}` must start with `{PROPERTY_PREFIX}`"
+        ))),
+        None => Ok(()),
+    }
 }
 
 fn moved(table: &TableRef, expected: Option<SnapshotId>, found: Option<SnapshotId>) -> Error {
@@ -678,84 +698,63 @@ mod tests {
 
     use arrow_array::Int64Array;
     use arrow_schema::{DataType, Field};
-    use iceberg::spec::{MAIN_BRANCH, Snapshot, Summary};
-    use infostash_model::Layer;
 
     use super::*;
+    use crate::test_support::{
+        all_ids, files_of, ids, ids_schema, job, orders, position, two_appends,
+    };
 
     #[tokio::test]
     async fn an_overwrite_in_the_range_is_refused() {
         let dir = tempfile::tempdir().unwrap();
-        let wh = Warehouse::open_local(dir.path()).await.unwrap();
-        let orders = TableRef::new(Layer::Raw, "orders");
-        let schema = Arc::new(ArrowSchema::new(vec![Field::new(
-            "id",
-            DataType::Int64,
-            false,
-        )]));
-        wh.create_table(&orders, &schema).await.unwrap();
-        let batch = RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![1]))]);
-        let append = wh.append(&orders, &[batch.unwrap()]).await.unwrap();
+        let (wh, orders) = orders(dir.path()).await;
+        let (first, second) = two_appends(&wh, &orders).await;
+        let replacement = Replacement {
+            remove: files_of(&wh, &orders, &second).await,
+            batches: vec![ids(&[30])],
+            ..Replacement::default()
+        };
+        let replaced = wh
+            .replace_if_head(&orders, second.snapshot, replacement, &job("j"))
+            .await
+            .unwrap();
 
-        // Nothing public in the pinned iceberg-rust makes an overwrite, so
-        // add one to the metadata by hand. Its manifest list is never read.
         let metadata = wh.load(&orders).await.unwrap().metadata().clone();
-        let overwrite = Snapshot::builder()
-            .with_snapshot_id(append.snapshot + 1)
-            .with_parent_snapshot_id(Some(append.snapshot))
-            .with_sequence_number(metadata.next_sequence_number())
-            .with_timestamp_ms(metadata.last_updated_ms() + 1)
-            .with_manifest_list("unused.avro")
-            .with_summary(Summary {
-                operation: Operation::Overwrite,
-                additional_properties: HashMap::new(),
-            })
-            .with_schema_id(metadata.current_schema_id())
-            .build();
-        let metadata = metadata
-            .into_builder(None)
-            .set_branch_snapshot(overwrite, MAIN_BRANCH)
-            .unwrap()
-            .build()
-            .unwrap()
-            .metadata;
+        let refused = |r: &Result<()>| matches!(r, Err(Error::Storage(m)) if m.contains("`overwrite`, not an append"));
+        let err =
+            appends_between(&metadata, &orders, second.snapshot, replaced.snapshot).map(|_| ());
+        assert!(refused(&err), "{err:?}");
+        let since_first = wh
+            .read_since(&orders, Some(first.snapshot))
+            .await
+            .map(|_| ());
+        assert!(refused(&since_first), "{since_first:?}");
+        let across = SnapshotRange {
+            from: Some(second.snapshot),
+            to: replaced.snapshot,
+        };
+        let across = wh.scan_range(&orders, across).await.map(|_| ());
+        assert!(refused(&across), "{across:?}");
 
-        let err = appends_between(&metadata, &orders, append.snapshot, append.snapshot + 1);
-        assert!(
-            matches!(&err, Err(Error::Storage(m)) if m.contains("`overwrite`, not an append")),
-            "{err:?}"
-        );
-        // An overwrite before the range doesn't matter.
+        // An overwrite before the range doesn't matter, and reading
+        // everything still works.
         let from_overwrite =
-            appends_between(&metadata, &orders, append.snapshot + 1, append.snapshot + 1);
+            appends_between(&metadata, &orders, replaced.snapshot, replaced.snapshot);
         assert!(from_overwrite.unwrap().is_empty());
-    }
+        let since = wh.read_since(&orders, Some(replaced.snapshot)).await;
+        assert!(since.unwrap().is_empty());
+        let everything = wh.read_since(&orders, None).await.unwrap();
+        assert_eq!(all_ids(&everything), [1, 2, 30]);
 
-    fn ids_schema() -> Arc<ArrowSchema> {
-        Arc::new(ArrowSchema::new(vec![Field::new(
-            "id",
-            DataType::Int64,
-            false,
-        )]))
-    }
-
-    fn ids(values: &[i64]) -> RecordBatch {
-        RecordBatch::try_new(
-            ids_schema(),
-            vec![Arc::new(Int64Array::from(values.to_vec()))],
-        )
-        .unwrap()
-    }
-
-    fn position(value: &str) -> HashMap<String, String> {
-        HashMap::from([("infostash.position".to_string(), value.to_string())])
-    }
-
-    async fn orders(dir: &Path) -> (Warehouse, TableRef) {
-        let wh = Warehouse::open_local(dir).await.unwrap();
-        let orders = TableRef::new(Layer::Raw, "orders");
-        wh.create_table(&orders, &ids_schema()).await.unwrap();
-        (wh, orders)
+        // iceberg-rust's own append builds on the hand-made snapshot, and
+        // reads incrementally from it.
+        let after = Some(replaced.snapshot);
+        wh.append_if_head(&orders, &[ids(&[6])], after, &position("p3"))
+            .await
+            .unwrap();
+        let since = wh.read_since(&orders, after).await.unwrap();
+        assert_eq!(all_ids(&since), [6]);
+        assert_eq!(all_ids(&wh.read_all(&orders).await.unwrap()), [1, 2, 6, 30]);
     }
 
     /// The codec of every column chunk in the Parquet files under `dir`.
