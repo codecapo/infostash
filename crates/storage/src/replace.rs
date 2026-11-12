@@ -16,11 +16,10 @@ use arrow_array::RecordBatch;
 use iceberg::spec::{
     DataContentType, DataFile, DataFileFormat, FormatVersion, MAIN_BRANCH, ManifestContentType,
     ManifestEntryRef, ManifestFile, ManifestListWriter, ManifestWriter, ManifestWriterBuilder,
-    Operation, PartitionSpecRef, Snapshot, SnapshotReference, SnapshotRetention,
-    SnapshotSummaryCollector, Summary, TableMetadata,
+    Operation, PartitionSpecRef, Snapshot, SnapshotSummaryCollector, Summary, TableMetadata,
 };
 use iceberg::table::Table;
-use iceberg::{MetadataLocation, TableRequirement, TableUpdate};
+use iceberg::{MetadataLocation, TableRequirement};
 use infostash_model::{Error, Result, SnapshotId, TableRef};
 
 use crate::{Commit, Warehouse, check_properties, ident, moved, storage, write_files};
@@ -134,6 +133,7 @@ impl Warehouse {
         }
         let base_location = current.metadata_location_result().map_err(storage)?;
         let plan = plan(&current, table, expected_head, &replacement.remove).await?;
+        check_added(table, &plan, &replacement.files)?;
 
         let (mut added, written) = write_files(&current, table, &replacement.batches).await?;
         let prebuilt: u64 = replacement.files.iter().map(DataFile::record_count).sum();
@@ -226,6 +226,8 @@ struct Plan {
     rewritten: Vec<(ManifestFile, Vec<ManifestEntryRef>)>,
     /// The data files removed, as their entries describe them.
     removed: Vec<DataFile>,
+    /// Paths of the live data files the replace leaves in place.
+    staying: HashSet<String>,
 }
 
 /// Sort the base snapshot's manifests into those a replace keeps and those
@@ -251,6 +253,7 @@ async fn plan(
         kept: Vec::new(),
         rewritten: Vec::new(),
         removed: Vec::new(),
+        staying: HashSet::new(),
     };
     for manifest_file in list.entries() {
         if manifest_file.content != ManifestContentType::Data {
@@ -270,11 +273,11 @@ async fn plan(
             .filter(|e| e.is_alive())
             .cloned()
             .collect();
-        let gone: Vec<DataFile> = live
-            .iter()
-            .filter(|e| remove.contains(e.file_path()))
-            .map(|e| e.data_file().clone())
-            .collect();
+        let (gone, staying): (Vec<&ManifestEntryRef>, Vec<&ManifestEntryRef>) =
+            live.iter().partition(|e| remove.contains(e.file_path()));
+        plan.staying
+            .extend(staying.iter().map(|e| e.file_path().to_string()));
+        let gone: Vec<DataFile> = gone.iter().map(|e| e.data_file().clone()).collect();
         if gone.is_empty() {
             plan.kept.push(manifest_file.clone());
         } else {
@@ -292,6 +295,25 @@ async fn plan(
         )));
     }
     Ok(plan)
+}
+
+/// Check that no prebuilt file is listed twice or is already live and
+/// staying, either of which would make readers return its rows twice.
+fn check_added(table: &TableRef, plan: &Plan, files: &[DataFile]) -> Result<()> {
+    let mut seen = HashSet::new();
+    for path in files.iter().map(DataFile::file_path) {
+        if !seen.insert(path) {
+            return Err(Error::Storage(format!(
+                "{table}: {path} is added more than once"
+            )));
+        }
+        if plan.staying.contains(path) {
+            return Err(Error::Storage(format!(
+                "{table}: {path} is already live and not removed"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Write the manifests and manifest list of an `overwrite` snapshot on top
@@ -375,35 +397,22 @@ async fn write_snapshot(
 }
 
 /// The table metadata after the replace: the snapshot added, `main`
-/// pointed at it and the properties set, through the same updates a
-/// catalog commit applies.
+/// pointed at it with its retention kept, and the properties set.
 fn next_metadata(
     metadata: &TableMetadata,
     base_location: &str,
     snapshot: Snapshot,
     properties: &HashMap<String, String>,
 ) -> Result<TableMetadata> {
-    let snapshot_id = snapshot.snapshot_id();
-    let mut updates = vec![
-        TableUpdate::AddSnapshot { snapshot },
-        TableUpdate::SetSnapshotRef {
-            ref_name: MAIN_BRANCH.to_string(),
-            reference: SnapshotReference::new(
-                snapshot_id,
-                SnapshotRetention::branch(None, None, None),
-            ),
-        },
-    ];
-    if !properties.is_empty() {
-        updates.push(TableUpdate::SetProperties {
-            updates: properties.clone(),
-        });
-    }
     let mut builder = metadata
         .clone()
-        .into_builder(Some(base_location.to_string()));
-    for update in updates {
-        builder = update.apply(builder).map_err(storage)?;
+        .into_builder(Some(base_location.to_string()))
+        .set_branch_snapshot(snapshot, MAIN_BRANCH)
+        .map_err(storage)?;
+    if !properties.is_empty() {
+        builder = builder
+            .set_properties(properties.clone())
+            .map_err(storage)?;
     }
     Ok(builder.build().map_err(storage)?.metadata)
 }
@@ -440,9 +449,9 @@ fn manifest_writer(
 }
 
 /// Summary of an overwrite: `added-*` and `deleted-*` from iceberg's
-/// collector, and `total-*` carried forward from the base and adjusted.
-/// iceberg-rust's helper that does this for its own commits is
-/// crate-private at the pin.
+/// collector, and `total-*` carried forward from the base by
+/// [`carry_totals`]. iceberg-rust's helper that does this for its own
+/// commits is crate-private at the pin.
 fn overwrite_summary(
     metadata: &TableMetadata,
     base: SnapshotId,
@@ -459,11 +468,21 @@ fn overwrite_summary(
         collector.remove_file(file, schema.clone(), spec.clone());
     }
     let mut fields = collector.build();
-    let empty = HashMap::new();
-    let previous = metadata
-        .snapshot_by_id(base)
-        .map_or(&empty, |s| &s.summary().additional_properties);
-    let number = |m: &HashMap<String, String>, k: &str| -> i64 {
+    if let Some(previous) = metadata.snapshot_by_id(base) {
+        carry_totals(&previous.summary().additional_properties, &mut fields);
+    }
+    Summary {
+        operation: Operation::Overwrite,
+        additional_properties: fields,
+    }
+}
+
+/// Set each `total-*` in `fields` to the base's total plus what the
+/// snapshot adds and minus what it removes. A total the base does not
+/// hold as a number stays unset: carrying it from zero would publish a
+/// total that leaves out the files the replace keeps.
+fn carry_totals(previous: &HashMap<String, String>, fields: &mut HashMap<String, String>) {
+    let delta = |m: &HashMap<String, String>, k: &str| -> i64 {
         m.get(k).and_then(|v| v.parse().ok()).unwrap_or(0)
     };
     for (total, plus, minus) in [
@@ -486,12 +505,11 @@ fn overwrite_summary(
             "removed-equality-deletes",
         ),
     ] {
-        let value = number(previous, total) + number(&fields, plus) - number(&fields, minus);
+        let Some(base) = previous.get(total).and_then(|v| v.parse::<i64>().ok()) else {
+            continue;
+        };
+        let value = base + delta(fields, plus) - delta(fields, minus);
         fields.insert(total.to_string(), value.to_string());
-    }
-    Summary {
-        operation: Operation::Overwrite,
-        additional_properties: fields,
     }
 }
 
@@ -520,10 +538,13 @@ mod tests {
     use std::sync::Arc;
 
     use futures::TryStreamExt;
+    use std::str::FromStr;
+
     use iceberg::spec::{
-        DataContentType, DataFileBuilder, DataFileFormat, FormatVersion, ManifestStatus, Operation,
+        DataContentType, DataFileBuilder, DataFileFormat, FormatVersion, MAIN_BRANCH,
+        ManifestStatus, Operation, SnapshotReference, SnapshotRetention,
     };
-    use iceberg::{Catalog, NamespaceIdent, TableCreation};
+    use iceberg::{Catalog, MetadataLocation, NamespaceIdent, TableCreation};
     use infostash_model::{Error, TableRef};
 
     use super::{PreparedReplace, Replacement};
@@ -1103,6 +1124,102 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_file_added_twice_or_already_live_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let (wh, orders) = orders(dir.path()).await;
+        let (_, second) = two_appends(&wh, &orders).await;
+        let loaded = wh.load(&orders).await.unwrap();
+        let (files, _) = write_files(&loaded, &orders, &[ids(&[10])]).await.unwrap();
+        let path = files[0].file_path().to_string();
+
+        let doubled = Replacement {
+            files: vec![files[0].clone(), files[0].clone()],
+            ..Replacement::default()
+        };
+        let doubled = wh
+            .replace_if_head(&orders, second.snapshot, doubled, &job("j"))
+            .await;
+        assert!(
+            matches!(&doubled, Err(Error::Storage(m)) if m.contains(&path) && m.contains("more than once")),
+            "{doubled:?}"
+        );
+
+        let once = Replacement {
+            files: files.clone(),
+            ..Replacement::default()
+        };
+        let added = wh
+            .replace_if_head(&orders, second.snapshot, once.clone(), &job("j"))
+            .await
+            .unwrap();
+        let again = wh
+            .replace_if_head(&orders, added.snapshot, once, &job("k"))
+            .await;
+        assert!(
+            matches!(&again, Err(Error::Storage(m)) if m.contains(&path) && m.contains("already live")),
+            "{again:?}"
+        );
+
+        // Removing it and adding it back in one replace is allowed.
+        let back = Replacement {
+            remove: vec![path],
+            files,
+            ..Replacement::default()
+        };
+        wh.replace_if_head(&orders, added.snapshot, back, &job("k"))
+            .await
+            .unwrap();
+        assert_eq!(
+            all_ids(&wh.read_all(&orders).await.unwrap()),
+            [1, 2, 3, 4, 5, 10]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_replace_keeps_the_main_branch_retention() {
+        let dir = tempfile::tempdir().unwrap();
+        let (wh, orders) = orders(dir.path()).await;
+        let (_, second) = two_appends(&wh, &orders).await;
+        // Give main a retention policy, committed the way a replace is.
+        let loaded = wh.load(&orders).await.unwrap();
+        let base = loaded.metadata_location().unwrap().to_string();
+        let retention = SnapshotRetention::branch(Some(7), Some(86_400_000), None);
+        let reference = SnapshotReference::new(second.snapshot, retention);
+        let kept = loaded
+            .metadata()
+            .clone()
+            .into_builder(Some(base.clone()))
+            .set_ref(MAIN_BRANCH, reference)
+            .unwrap()
+            .build()
+            .unwrap()
+            .metadata;
+        let next = MetadataLocation::from_str(&base)
+            .unwrap()
+            .with_next_version()
+            .try_with_new_metadata(&kept)
+            .unwrap();
+        kept.write_to(loaded.file_io(), &next).await.unwrap();
+        let next = next.to_string();
+        assert!(wh.swap.swap(&ident(&orders), &base, &next).await.unwrap());
+
+        let prepared = prepare(&wh, &orders, &second, &[30], "j").await;
+        let replaced = wh.commit_replace(prepared).await.unwrap();
+
+        let loaded = wh.load(&orders).await.unwrap();
+        let main = loaded.metadata().snapshot_for_ref(MAIN_BRANCH).unwrap();
+        assert_eq!(main.snapshot_id(), replaced.snapshot);
+        // iceberg keeps the refs crate-private, so read them from the file.
+        let text = std::fs::read_to_string(local_path(&replaced.metadata_location)).unwrap();
+        for field in [
+            "\"min-snapshots-to-keep\":7",
+            "\"max-snapshot-age-ms\":86400000",
+        ] {
+            assert!(text.contains(field), "{field} missing from {text}");
+        }
+    }
+
+    #[tokio::test]
     async fn only_format_version_2_tables_are_replaced() {
         let dir = tempfile::tempdir().unwrap();
         let (wh, _) = orders(dir.path()).await;
@@ -1175,5 +1292,34 @@ mod tests {
             .unwrap();
         let rows = wh.read_all(&orders).await.unwrap();
         assert_eq!(all_ids(&rows), [3, 4, 5, 10, 12]);
+    }
+
+    #[test]
+    fn a_total_the_base_does_not_hold_as_a_number_stays_unset() {
+        let strings = |pairs: &[(&str, &str)]| -> HashMap<String, String> {
+            pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        };
+        let previous = strings(&[
+            ("total-records", "10"),
+            ("total-data-files", "many"),
+            ("total-delete-files", "0"),
+        ]);
+        let mut fields = strings(&[
+            ("added-records", "3"),
+            ("deleted-records", "4"),
+            ("added-data-files", "1"),
+            ("deleted-data-files", "1"),
+            ("added-files-size", "100"),
+        ]);
+
+        super::carry_totals(&previous, &mut fields);
+
+        assert_eq!(fields["total-records"], "9");
+        assert_eq!(fields["total-delete-files"], "0");
+        assert!(!fields.contains_key("total-data-files"), "{fields:?}");
+        assert!(!fields.contains_key("total-files-size"), "{fields:?}");
     }
 }
