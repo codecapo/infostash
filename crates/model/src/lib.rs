@@ -165,6 +165,10 @@ pub enum Error {
     /// A commit lost a race: the table changed after the writer read it.
     /// Retrying from a fresh read is safe.
     Conflict(String),
+    /// A read needs a snapshot that expiry removed, so the rows committed
+    /// since its checkpoint can't be told apart. Retrying never helps; the
+    /// reader has to read the table again in full (ADR 0009).
+    TruncatedHistory(String),
 }
 
 impl fmt::Display for Error {
@@ -176,6 +180,7 @@ impl fmt::Display for Error {
             Error::Execution(m) => write!(f, "execution error: {m}"),
             Error::NotFound(m) => write!(f, "not found: {m}"),
             Error::Conflict(m) => write!(f, "conflict: {m}"),
+            Error::TruncatedHistory(m) => write!(f, "truncated history: {m}"),
         }
     }
 }
