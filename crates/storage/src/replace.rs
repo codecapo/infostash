@@ -127,6 +127,11 @@ impl Warehouse {
                 metadata.format_version()
             )));
         }
+        if !metadata.default_partition_spec().fields().is_empty() {
+            return Err(Error::Storage(format!(
+                "{table}: replacing files needs an unpartitioned table"
+            )));
+        }
         let found = metadata.current_snapshot_id();
         if found != Some(expected_head) {
             return Err(moved(table, Some(expected_head), found));
@@ -955,6 +960,20 @@ mod tests {
         assert_eq!(all_ids(&new_file), [1, 2, 30, 40]);
     }
 
+    /// Every file under `dir`.
+    fn walkdir(dir: &Path) -> Vec<std::path::PathBuf> {
+        let mut files = Vec::new();
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                files.extend(walkdir(&path));
+            } else {
+                files.push(path);
+            }
+        }
+        files
+    }
+
     /// Count the entries in a directory.
     fn count(dir: &Path) -> usize {
         std::fs::read_dir(dir).unwrap().count()
@@ -1241,6 +1260,39 @@ mod tests {
             "{refused:?}"
         );
         assert_eq!(wh.snapshots(&old).await.unwrap(), [first.snapshot]);
+    }
+
+    #[tokio::test]
+    async fn only_unpartitioned_tables_are_replaced() {
+        let dir = tempfile::tempdir().unwrap();
+        let (wh, _) = orders(dir.path()).await;
+        let parts = TableRef::new(infostash_model::Layer::Raw, "parts");
+        let schema = iceberg::arrow::arrow_schema_to_schema_auto_assign_ids(&ids_schema()).unwrap();
+        let spec = iceberg::spec::PartitionSpec::builder(schema.clone())
+            .add_partition_field("id", "id", iceberg::spec::Transform::Identity)
+            .unwrap()
+            .build()
+            .unwrap();
+        let creation = TableCreation::builder()
+            .name(parts.name.clone())
+            .schema(schema)
+            .partition_spec(spec)
+            .build();
+        let raw = NamespaceIdent::new(parts.layer.namespace().to_string());
+        wh.catalog.create_table(&raw, creation).await.unwrap();
+
+        let refused = wh
+            .prepare_replace(&parts, 1, swap_in(vec![], &[2]), &job("j"))
+            .await;
+        assert!(
+            matches!(&refused, Err(Error::Storage(m)) if m.contains("unpartitioned")),
+            "{refused:?}"
+        );
+        let parquet = walkdir(dir.path())
+            .into_iter()
+            .filter(|p| p.extension().is_some_and(|e| e == "parquet"))
+            .count();
+        assert_eq!(parquet, 0);
     }
 
     /// The catalog also reads an `iceberg_tables` in its older layout, which
