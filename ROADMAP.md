@@ -24,6 +24,9 @@ Goal: a small team can run it on their own cloud account.
 - Connector SDK v1: YAML connectors, Rust SDK, conformance tests
 - First connectors: Postgres, MySQL, S3 files, REST APIs, Kafka
 - Postgres wire protocol, so BI tools can connect
+- Training data: file connectors for Parquet, JSON lines and Avro, a
+  deterministic train and test split, and a tested Python example that reads
+  a table at a pinned snapshot, so a model can name the exact data it saw
 - Web UI: project browser, run history, table preview
 - Compaction and snapshot expiry
 
