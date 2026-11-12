@@ -22,7 +22,8 @@ use iceberg::table::Table;
 use iceberg::{MetadataLocation, TableRequirement};
 use infostash_model::{Error, Result, SnapshotId, TableRef};
 
-use crate::{Commit, Warehouse, check_properties, ident, moved, storage, write_files};
+use crate::write::write_files;
+use crate::{Commit, Warehouse, check_properties, ident, moved, storage};
 
 /// What a replace takes out of a table and puts in.
 #[derive(Debug, Clone, Default)]
@@ -548,12 +549,14 @@ mod tests {
     use infostash_model::{Error, TableRef};
 
     use super::{PreparedReplace, Replacement};
+    use crate::read::scan_at;
     use crate::swap::CatalogSwap;
     use crate::test_support::{
         all_ids, entries_of, files_of, ids, ids_schema, job, live_files, local_path, manifests_of,
         orders, position, referenced_files, two_appends,
     };
-    use crate::{Warehouse, ident, read_metadata_file, scan_at, write_files};
+    use crate::write::write_files;
+    use crate::{Warehouse, ident, read_metadata_file};
 
     fn swap_in(remove: Vec<String>, values: &[i64]) -> Replacement {
         Replacement {
