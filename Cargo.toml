@@ -22,15 +22,15 @@ infostash-agent = { path = "crates/agent", version = "0.1.0" }
 # The DataFusion integration moved to apache/datafusion-iceberg; keep the
 # iceberg rev equal to the one that repo pins, or two iceberg copies build.
 # Arrow and parquet must match iceberg's.
-arrow-array = "59.2"
-arrow-csv = "59.2"
-arrow-json = "59.2"
-arrow-schema = "59.2"
+arrow-array = "60.1"
+arrow-csv = "60.1"
+arrow-json = "60.1"
+arrow-schema = "60.1"
 datafusion = "55.2.0"
 iceberg = { git = "https://github.com/apache/iceberg-rust", rev = "5b82ab99aeaf50bf4f5b3b776ac9cd6380a5f3e3" }
 iceberg-catalog-sql = { git = "https://github.com/apache/iceberg-rust", rev = "5b82ab99aeaf50bf4f5b3b776ac9cd6380a5f3e3" }
 iceberg-datafusion = { git = "https://github.com/apache/datafusion-iceberg", rev = "7fb643f850e23e2764f742cf84088a5b7c07d33c" }
-parquet = "59.2"
+parquet = "60.1"
 
 
 [workspace.lints.rust]
