@@ -11,7 +11,8 @@ use futures::TryStreamExt;
 use iceberg::spec::ManifestStatus;
 use infostash_model::{Layer, SnapshotId, TableRef};
 
-use crate::{Commit, Warehouse, files_added_by};
+use crate::read::files_added_by;
+use crate::{Commit, Warehouse};
 
 pub(crate) fn ids_schema() -> Arc<ArrowSchema> {
     Arc::new(ArrowSchema::new(vec![Field::new(
